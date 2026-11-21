@@ -1,0 +1,1168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Gavin Daher: seven projects, each one a station on a survey map. Learned caves, agent harnesses, image-to-3D, terrain diffusion, fine-tuning, a map mod and a home lab.">
+<meta name="robots" content="noindex">
+<meta property="og:title" content="Gavin Daher Objects">
+<meta property="og:description" content="Seven projects, each one a station on a survey map.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23e4e2dc'/%3E%3Cpath d='M16 3v26M3 16h26' stroke='%231b1a17' stroke-width='2.5'/%3E%3Ccircle cx='16' cy='16' r='6' fill='none' stroke='%23d9500a' stroke-width='3'/%3E%3C/svg%3E">
+<title>Gavin Daher Objects</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+[hidden] { display: none !important; }
+/* A field survey. Every project is one station: an object rendered in the same studio (one camera, one light),
+   a crosshair marker and a label. A dashed traverse joins the stations on the map, and the same traverse
+   runs across the top of every station page so you always know where you are on the route. */
+:root {
+  --ground: #e4e2dc;
+  --contour: rgba(70, 66, 58, 0.12);
+  --contour-major: rgba(70, 66, 58, 0.21);
+  --ink: #1b1a17;
+  --ink-2: #4a4740;
+  --ink-3: #6c685f;
+  --hair: rgba(27, 26, 23, 0.18);
+  --marker: #d9500a;
+  --note: #f3f1ea;
+  --display: "Familjen Grotesk", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--ground); color: var(--ink); font-family: var(--display); font-size: 16px; -webkit-font-smoothing: antialiased;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--marker); outline-offset: 4px; }
+img, video { max-width: 100%; }
+#contours { position: absolute; left: 0; top: 0; width: 100%; pointer-events: none; z-index: 0; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: .92em; }
+
+/* top bar */
+.top {
+  position: relative; z-index: 3; max-width: 1440px; margin: 0 auto; padding-block: 28px 0;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap;
+  font: 400 13px/1 var(--mono); color: var(--ink-3);
+}
+.top nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.top nav a { font: 500 14px/1 var(--mono); color: var(--ink); padding: 14px 12px; min-height: 44px; text-decoration: none; display: inline-flex; align-items: center; }
+.top nav a:hover, .top nav a[aria-current="page"] { color: var(--marker); }
+
+/* ---------- map ---------- */
+.field { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; height: 1980px; }
+#traverse { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: visible; }
+#traverse path { fill: none; stroke: var(--ink); stroke-width: 1.25; stroke-dasharray: 2 6; stroke-linecap: round; opacity: .55; }
+
+.legend {
+  position: absolute; left: 3%; top: 110px; width: 360px; z-index: 2;
+  background: var(--ground); border: 1.5px solid var(--ink); padding: 22px 24px; display: grid; gap: 14px;
+}
+.legend h1 { margin: 0; font: 700 40px/0.95 var(--display); letter-spacing: -0.03em; }
+.legend .lede { margin: 0; font: 400 17px/1.45 var(--display); color: var(--ink-2); }
+.legend dl { margin: 0; display: grid; grid-template-columns: auto minmax(0,1fr); gap: 6px 14px; font: 400 12px/1.4 var(--mono); color: var(--ink-2); border-top: 1px solid var(--ink); padding-top: 12px; }
+.legend dt { color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+.legend dd { margin: 0; font-variant-numeric: tabular-nums; }
+.legend dd a:hover { color: var(--marker); }
+.legend .day { border-top: 1px solid var(--ink); padding-top: 12px; display: grid; gap: 4px; }
+.legend .day span { font: 400 12px/1.3 var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+.legend .day a { justify-self: start; font: 500 15px/1.35 var(--display); color: var(--ink); text-decoration: none; padding: 4px 0; min-height: 32px; display: inline-flex; align-items: center; }
+.legend .day a:hover { color: var(--marker); }
+.legend .key { font: 400 12px/1.5 var(--mono); color: var(--ink-3); margin: 0; }
+
+.st { position: absolute; z-index: 1; display: grid; gap: 12px; justify-items: start; color: var(--ink); text-decoration: none; }
+.st .objs { display: flex; align-items: flex-end; gap: 10px; transition: transform .45s cubic-bezier(.2,.7,.3,1); }
+.st .objs img { display: block; height: auto; max-width: 100%; }
+.st:hover .objs, .st:focus-visible .objs { transform: translateY(-6px); }
+.lbl { display: grid; grid-template-columns: 14px auto; column-gap: 10px; row-gap: 3px; align-items: center; }
+.x { width: 14px; height: 14px; display: inline-block; flex: none; background:
+  linear-gradient(var(--ink), var(--ink)) center/14px 1.5px no-repeat, linear-gradient(var(--ink), var(--ink)) center/1.5px 14px no-repeat; }
+.lbl .x { grid-row: span 2; align-self: start; margin-top: 1px; }
+.lbl .no { font: 500 12px/1 var(--mono); color: var(--ink); letter-spacing: .02em; }
+.no em { font-style: normal; color: var(--ink-3); font-weight: 400; }
+.lbl .fact { grid-column: 2; font: 400 12px/1.3 var(--mono); color: var(--ink-3); }
+.lbl .name { font: 600 19px/1.1 var(--display); letter-spacing: -0.01em; grid-column: 2; }
+.x.on, .st:hover .x, .st:focus-visible .x, a:hover > .x { background:
+  linear-gradient(var(--marker), var(--marker)) center/14px 1.5px no-repeat, linear-gradient(var(--marker), var(--marker)) center/1.5px 14px no-repeat; }
+.st:hover .name, .st:focus-visible .name { color: var(--marker); }
+
+/* ---------- index ---------- */
+.list { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; padding-block: 80px 120px; display: grid; gap: 28px; }
+.list h2 { margin: 0; font: 700 40px/1 var(--display); letter-spacing: -0.03em; }
+.list ol { list-style: none; margin: 0; padding: 0; }
+.list li a {
+  display: grid; grid-template-columns: 56px 64px minmax(0,1fr); gap: 12px; padding: 16px 0; min-height: 56px;
+  border-top: 1px solid var(--ink); color: var(--ink); text-decoration: none; background: var(--ground);
+}
+.list li:last-child a { border-bottom: 1px solid var(--ink); }
+.list li a:hover b { color: var(--marker); }
+.list .no, .list .yr { font: 400 13px/1.6 var(--mono); color: var(--ink-3); }
+.list b { font: 600 18px/1.3 var(--display); display: block; }
+.list span.d { font: 400 15px/1.5 var(--display); color: var(--ink-2); }
+
+/* ---------- station pages ---------- */
+.page { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; }
+.route { margin: 28px 0 0; position: relative; display: flex; justify-content: space-between; padding: 0 4px; }
+.route::before { content: ""; position: absolute; left: 11px; right: 11px; top: 7px; border-top: 1.25px dashed rgba(27,26,23,.5); }
+.route a { position: relative; display: grid; justify-items: center; gap: 6px; text-decoration: none; min-width: 44px; min-height: 44px; font: 400 11px/1.2 var(--mono); color: var(--ink-3); background: none; }
+.route a .x { background-color: var(--ground); box-shadow: 0 0 0 4px var(--ground); }
+.route a:hover, .route a[aria-current="step"] { color: var(--marker); }
+.route a .t { display: block; text-align: center; max-width: 120px; }
+.route a[aria-current="step"] .t { color: var(--ink); font-weight: 500; }
+
+.ph { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 48px; align-items: end; padding-block: 56px 48px; }
+.ph-obj { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; justify-content: center; }
+.ph-obj img { display: block; height: auto; }
+.ph-lbl { display: grid; gap: 16px; align-content: end; }
+.ph-lbl .no { display: flex; gap: 10px; align-items: center; font: 500 12px/1.3 var(--mono); }
+.ph-lbl h1 { margin: 0; font: 700 clamp(36px, 5vw, 60px)/0.95 var(--display); letter-spacing: -0.035em; text-wrap: balance; }
+.ph-lbl .lede { margin: 0; font: 400 19px/1.5 var(--display); color: var(--ink-2); max-width: 46ch; }
+.ph-box { border: 1.5px solid var(--ink); padding: 24px; display: grid; gap: 14px; background: var(--ground); }
+
+.facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); border-top: 1.5px solid var(--ink); }
+.facts div { padding: 12px 16px 14px 0; border-bottom: 1px solid var(--hair); display: grid; gap: 4px; align-content: start; }
+.facts dt { font: 400 12px/1.35 var(--mono); color: var(--ink-3); }
+.facts dd { margin: 0; font: 600 24px/1.1 var(--display); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+.body { position: relative; background: var(--ground); border-top: 1.5px solid var(--ink); padding-block: 8px 24px; }
+.blk { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; padding-block: 40px; border-bottom: 1px solid var(--hair); }
+.blk > h2 { margin: 0; font: 500 12px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); display: flex; gap: 10px; align-items: baseline; }
+.blk > h2 b { color: var(--marker); font-weight: 500; }
+.bd { display: grid; gap: 20px; min-width: 0; }
+.bd > p, .bd li, .box p, .box li { font: 400 17px/1.6 var(--display); color: var(--ink-2); }
+.bd > p { margin: 0; max-width: 66ch; }
+.bd p b, .box b, .bd li b { color: var(--ink); font-weight: 600; }
+.bd ul.tight, .box ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; max-width: 66ch; }
+.small { font: 400 13px/1.55 var(--mono) !important; color: var(--ink-3) !important; max-width: 80ch; margin: 0; }
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+
+.fig { margin: 0; display: grid; gap: 8px; }
+.fig img, .fig video { display: block; width: 100%; height: auto; border: 1.5px solid var(--ink); background: var(--note); }
+.fig figcaption, .cap { font: 400 12px/1.5 var(--mono); color: var(--ink-3); }
+
+.box { border: 1.5px solid var(--ink); padding: 20px 22px; display: grid; gap: 10px; align-content: start; background: var(--ground); }
+.box h3 { margin: 0; font: 600 18px/1.25 var(--display); }
+.box p { margin: 0; font-size: 16px; }
+.box li { font-size: 16px; }
+.box .k, .kk { font: 500 12px/1.3 var(--mono); color: var(--marker); letter-spacing: .05em; text-transform: uppercase; }
+.box.limits { border-style: dashed; }
+
+.nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); border-top: 1.5px solid var(--ink); }
+.nums div { padding: 12px 16px 14px 0; border-bottom: 1px solid var(--hair); display: grid; gap: 4px; align-content: start; }
+.nums b { font: 600 24px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.nums span { font: 400 12px/1.35 var(--mono); color: var(--ink-3); }
+
+.pipe { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 0; align-items: stretch; }
+.pipe li { display: flex; align-items: center; }
+.pipe li span { border: 1.5px solid var(--ink); padding: 8px 12px; font: 600 15px/1.2 var(--display); display: grid; gap: 3px; background: var(--note); }
+.pipe li small { font: 400 11px/1.2 var(--mono); color: var(--ink-3); }
+.pipe li + li::before { content: ""; width: 18px; border-top: 1.25px dashed var(--ink); }
+
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.guard .ev { font: 400 13px/1.5 var(--mono); color: var(--ink); border-top: 1px solid var(--hair); padding-top: 10px; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tabs button { font: 500 13px/1 var(--mono); color: var(--ink); background: var(--ground); border: 1.5px solid var(--ink); padding: 0 14px; min-height: 44px; cursor: pointer; }
+.tabs button:hover { color: var(--marker); }
+.tabs button[aria-selected="true"], .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--note); }
+
+/* before/after slider */
+.ba-stage { position: relative; aspect-ratio: 607/341; border: 1.5px solid var(--ink); overflow: hidden; touch-action: pan-y; cursor: ew-resize; user-select: none; background: var(--note); }
+.ba-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.ba-stage img.over { clip-path: inset(0 0 0 var(--x)); }
+.ba-handle { position: absolute; top: 0; bottom: 0; left: var(--x); width: 0; border-left: 1.5px solid var(--note); }
+.ba-handle::after { content: ""; position: absolute; top: 50%; left: -9px; width: 16px; height: 16px; margin-top: -8px; background:
+  linear-gradient(var(--note), var(--note)) center/16px 2px no-repeat, linear-gradient(var(--note), var(--note)) center/2px 16px no-repeat; }
+.ba-lab { position: absolute; top: 10px; font: 500 12px/1 var(--mono); background: var(--ink); color: var(--note); padding: 6px 8px; }
+.ba-lab.l { left: 10px; } .ba-lab.r { right: 10px; background: var(--marker); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+input[type=range] { width: 100%; accent-color: var(--marker); min-height: 44px; }
+
+/* ladder */
+.ladder { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.rungs { list-style: none; margin: 0; padding: 0; border-top: 1.5px solid var(--ink); }
+.rungs button { width: 100%; display: grid; grid-template-columns: 28px minmax(0,1fr) 12px; gap: 10px; align-items: center; text-align: left; padding: 10px 0; min-height: 44px; border: 0; border-bottom: 1px solid var(--hair); background: none; cursor: pointer; font: 500 15px/1.25 var(--display); color: var(--ink); }
+.rungs button .i { font: 400 12px/1 var(--mono); color: var(--ink-3); }
+.rungs button[aria-selected="true"] { color: var(--marker); }
+.rungs .dot { width: 10px; height: 10px; border: 1.5px solid var(--ink); }
+.rungs .dot.kept { background: var(--ink); } .rungs .dot.part { background: linear-gradient(90deg, var(--ink) 50%, transparent 50%); }
+.rung-panel dl { margin: 0; display: grid; gap: 4px; }
+.rung-panel dt { font: 500 12px/1.3 var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; margin-top: 8px; }
+.rung-panel dd { margin: 0; font: 400 16px/1.55 var(--display); color: var(--ink-2); }
+.pill { font: 500 11px/1 var(--mono); padding: 5px 7px; border: 1.5px solid var(--ink); text-transform: uppercase; letter-spacing: .05em; justify-self: start; }
+.pill.kept { background: var(--ink); color: var(--note); }
+
+/* nine-day chart */
+.days { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px; align-items: end; border-bottom: 1.5px solid var(--ink); }
+.days button { display: grid; justify-items: center; gap: 6px; border: 0; background: none; cursor: pointer; padding: 0; color: var(--ink); min-height: 44px; }
+.days .nn { font: 500 12px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.days .bar { width: 100%; max-width: 54px; height: var(--h); border: 1.5px solid var(--ink); border-bottom: 0; background: var(--ink-2); }
+.days button[data-p="build"] .bar { background: repeating-linear-gradient(135deg, transparent 0 4px, rgba(27,26,23,.55) 4px 5.5px); }
+.days button[data-p="cw"] .bar { background: var(--note); }
+.days button[aria-pressed="true"] .bar { background: var(--marker); border-color: var(--marker); }
+.days button[aria-pressed="true"] .nn { color: var(--marker); }
+.days-x { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px; font: 400 11px/1.2 var(--mono); color: var(--ink-3); text-align: center; }
+.daykey { display: flex; flex-wrap: wrap; gap: 6px 20px; font: 400 12px/1.4 var(--mono); color: var(--ink-3); }
+.daykey i { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--ink); vertical-align: -2px; margin-right: 6px; }
+
+/* asset pairs, gallery */
+.pairs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; border: 1.5px solid var(--ink); background: var(--note); }
+.pair img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+.pair img + img { border-left: 1px solid var(--hair); object-fit: contain; }
+.row4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.row4 img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border: 1.5px solid var(--ink); }
+.gal { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.gal figure { margin: 0; display: grid; gap: 6px; }
+.gal img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border: 1.5px solid var(--ink); }
+.gal figcaption { font: 400 12px/1.45 var(--mono); color: var(--ink-3); }
+.gal figcaption b { color: var(--ink); font-weight: 500; }
+.chat .u { margin: 0; font: 500 16px/1.5 var(--display); color: var(--ink); }
+.chat .a { margin: 0; font: 400 14px/1.6 var(--mono); color: var(--ink); border-left: 3px solid var(--marker); padding-left: 12px; }
+.chat .spec { font-style: italic; }
+
+/* lab diagram */
+.lab { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+#labsvg { width: 100%; height: auto; display: block; }
+#labsvg .lane { font: 500 10px var(--mono); fill: var(--ink-3); letter-spacing: .08em; }
+#labsvg .n { cursor: pointer; }
+#labsvg .n rect { fill: var(--note); stroke: var(--ink); stroke-width: 1.5; }
+#labsvg .n.human rect { fill: var(--ground); stroke-dasharray: 4 3; }
+#labsvg .n text { font: 600 14px var(--display); fill: var(--ink); }
+#labsvg .n text.s { font: 400 10.5px var(--mono); fill: var(--ink-3); }
+#labsvg .n:hover rect, #labsvg .n:focus-visible rect { stroke: var(--marker); }
+#labsvg .n[aria-pressed="true"] rect { fill: var(--marker); stroke: var(--marker); }
+#labsvg .n[aria-pressed="true"] text { fill: var(--note); }
+#labsvg .n:focus { outline: none; }
+#labsvg .a { stroke: var(--ink); stroke-width: 1.25; fill: none; }
+#labsvg .u { stroke: var(--marker); stroke-width: 1.25; fill: none; stroke-dasharray: 3 4; }
+#labsvg .hd { fill: var(--ink); } #labsvg .hu { fill: var(--marker); }
+
+/* tables */
+.tbl { overflow-x: auto; border-top: 1.5px solid var(--ink); }
+.tbl table { width: 100%; border-collapse: collapse; min-width: 560px; }
+.tbl th { text-align: left; font: 500 12px/1.3 var(--mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; padding: 12px 16px 10px 0; border-bottom: 1px solid var(--ink); }
+.tbl td { font: 400 15px/1.5 var(--display); color: var(--ink-2); padding: 12px 16px 12px 0; border-bottom: 1px solid var(--hair); vertical-align: top; }
+.tbl td:first-child { color: var(--ink); font-weight: 500; }
+
+/* next station */
+.next { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; padding-block: 56px 32px; }
+.next a.go { display: flex; gap: 24px; align-items: flex-end; text-decoration: none; color: var(--ink); }
+.next a.go img { display: block; height: auto; width: 180px; transition: transform .45s cubic-bezier(.2,.7,.3,1); }
+.next a.go:hover img { transform: translateY(-6px); }
+.next a.go:hover .name { color: var(--marker); }
+.next .back { font: 500 14px/1 var(--mono); text-decoration: none; padding: 14px 0; min-height: 44px; display: inline-flex; align-items: center; }
+.next .back:hover { color: var(--marker); }
+.foot { font: 400 12px/1.6 var(--mono); color: var(--ink-3); max-width: 80ch; padding-block: 0 56px; margin: 0; }
+
+@media (max-width: 1240px) {
+  .field { height: auto; display: grid; gap: 56px; padding-block: 32px 96px; padding-left: 26px; border-left: 1.25px dashed rgba(27,26,23,.45); margin-left: 7px; }
+  #traverse { display: none; }
+  .legend { position: static; width: auto; max-width: 520px; }
+  .st { position: static; width: auto !important; }
+  .st .objs { flex-wrap: wrap; }
+  .st .objs img { max-width: 46%; }
+  .st .objs img.solo { max-width: min(100%, 520px); }
+}
+@media (max-width: 900px) {
+  .ph { grid-template-columns: 1fr; gap: 32px; padding-block: 40px 32px; }
+  .blk { grid-template-columns: 1fr; gap: 16px; padding-block: 32px; }
+  .two, .lab, .ladder, .grid2 { grid-template-columns: 1fr; }
+  .grid3 { grid-template-columns: 1fr 1fr; }
+  .pairs { grid-template-columns: 1fr 1fr; }
+  .gal { grid-template-columns: 1fr 1fr; }
+  .route a .t { display: none; }
+}
+@media (max-width: 560px) {
+  .grid3, .pairs { grid-template-columns: 1fr; }
+  .row4 { grid-template-columns: 1fr 1fr; }
+  .next { grid-template-columns: 1fr; }
+  .next a.go img { width: 120px; }
+  .days { gap: 4px; } .days-x { gap: 4px; font-size: 10px; }
+  .list li a { grid-template-columns: 48px minmax(0,1fr); }
+  .list .yr { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<canvas id="contours" aria-hidden="true"></canvas>
+
+<header class="top">
+  <span>survey of hobby projects · 2024–2026</span>
+  <nav aria-label="Site">
+    <a href="#map" data-nav="map">map</a>
+    <a href="#index" data-nav="index">index</a>
+    <a href="#architectures" data-nav="architectures">architectures</a>
+    <a href="#about" data-nav="about">about</a>
+    <a href="gavin-daher-resume.pdf" download>résumé</a>
+  </nav>
+</header>
+
+<main>
+  <!-- ======================= MAP ======================= -->
+  <section class="field" id="field" data-view="map" aria-label="Projects as survey stations, joined in order">
+    <svg id="traverse" aria-hidden="true"><path id="traversePath" d=""></path></svg>
+
+    <div class="legend">
+      <h1>Gavin Daher</h1>
+      <p class="lede">I take problems from my hobbies, try the model that might solve them, and measure the answer against real data.</p>
+      <dl>
+        <dt>Stations</dt><dd>7, in order</dd>
+        <dt>Architectures</dt><dd><a href="#architectures">17 tried →</a></dd>
+        <dt>Longest run</dt><dd>9 days, unattended</dd>
+      </dl>
+      <div class="day">
+        <span>Day job</span>
+        <a href="#about">Founder, Physical AI Team at Denali →</a>
+        <a href="#summit">Summit: Claude's ML harness →</a>
+      </div>
+      <p class="key">Every object is rendered under the same light. Textured objects are real outputs; stone-coloured ones are measurements.</p>
+    </div>
+
+    <a class="st" href="#caves" style="left: 35%; top: 120px;">
+      <span class="objs"><img src="img/r-cave-cast.webp" alt="Cast of a learned cave network, rendered in stone" style="width: 470px;" width="692" height="233"><img src="img/r-cave-tile.webp" alt="The learned cave in a real Minecraft client, as a mounted tile" style="width: 250px;" width="744" height="438"></span>
+      <span class="lbl"><span class="x"></span><span class="no">st.01 <em>· research · aug 2026</em></span><span class="name">Neural Karstogenesis</span><span class="fact">caves learned from 12 real ones</span></span>
+    </a>
+    <a class="st" href="#nine" style="left: 79%; top: 420px;">
+      <span class="objs"><img class="solo" src="img/r-runs-bars.webp" alt="Bar sculpture of experiments run per day, the busiest day in orange" style="width: 200px;" width="659" height="760"></span>
+      <span class="lbl"><span class="x"></span><span class="no">st.02 <em>· harness</em></span><span class="name">Nine days unattended</span><span class="fact">564 runs, 13–17 aug by day</span></span>
+    </a>
+    <a class="st" href="#assetforge" style="left: 7%; top: 700px;">
+      <span class="objs"><img src="img/r-minotaur.webp" alt="Minotaur generated from one concept image" style="width: 140px;" width="395" height="559"><img src="img/r-creature.webp" alt="One-eyed creature, auto-rigged" style="width: 170px;" width="617" height="578"><img src="img/r-pedal.webp" alt="Skull guitar pedal generated from pixel art" style="width: 190px;" width="760" height="620"><img src="img/r-computer.webp" alt="Retro computer generated from an illustration" style="width: 190px;" width="745" height="640"><img src="img/r-stone-face.webp" alt="Carved stone face generated from an illustration" style="width: 160px;" width="682" height="706"></span>
+      <span class="lbl"><span class="x"></span><span class="no">st.03 <em>· generative 3d</em></span><span class="name">AssetForge</span><span class="fact">one image in, a rigged model out, fully local</span></span>
+    </a>
+    <a class="st" href="#terrain" style="left: 64%; top: 930px;">
+      <span class="objs"><img class="solo" src="img/r-terrain-tile.webp" alt="Terrain from a fine-tuned diffusion model, as a mounted relief tile" style="width: 380px;" width="747" height="471"></span>
+      <span class="lbl"><span class="x"></span><span class="no">st.04 <em>· research · 2026</em></span><span class="name">Terrain diffusion</span><span class="fact">a LoRA, then two programs closed by their rules</span></span>
+    </a>
+    <a class="st" href="#finetune" style="left: 13%; top: 1250px;">
+      <span class="objs"><img src="img/r-pumpkin-tile.webp" alt="Pumpkin character from a FLUX style LoRA, as a mounted tile" style="width: 270px;" width="748" height="472"><img src="img/r-bazaar-tile.webp" alt="Space-station market from a FLUX style LoRA, as a mounted tile" style="width: 270px;" width="748" height="472"></span>
+      <span class="lbl"><span class="x"></span><span class="no">st.05 <em>· fine-tuning</em></span><span class="name">Style LoRAs and synthetic data</span><span class="fact">4 diffusion models tuned · persona LoRAs</span></span>
+    </a>
+    <a class="st" href="#atlas" style="left: 55%; top: 1400px;">
+      <span class="objs"><img class="solo" src="img/r-atlas-tile.webp" alt="Orbital Atlas world map, as a mounted tile" style="width: 440px;" width="744" height="438"></span>
+      <span class="lbl"><span class="x"></span><span class="no">st.06 <em>· agent team</em></span><span class="name">Orbital Atlas</span><span class="fact">a map mod built by agents, 9 weeks to beta</span></span>
+    </a>
+    <a class="st" href="#lab" style="left: 22%; top: 1640px;">
+      <span class="objs"><img class="solo" src="img/r-ledger-bars.webp" alt="Bar sculpture of the agent ledger: runs, leases, parked questions, and human decisions in orange" style="width: 200px;" width="651" height="739"></span>
+      <span class="lbl"><span class="x"></span><span class="no">st.07 <em>· homelab</em></span><span class="name">The lab</span><span class="fact">92 human decisions in 17,672 events</span></span>
+    </a>
+  </section>
+
+  <!-- ======================= INDEX ======================= -->
+  <section class="list" data-view="index" hidden aria-label="Index of stations">
+    <h2>Index</h2>
+    <ol>
+      <li><a href="#caves"><span class="no">st.01</span><span class="yr">2026</span><span><b>Neural Karstogenesis</b><span class="d">Caves learned from twelve real ones.</span></span></a></li>
+      <li><a href="#nine"><span class="no">st.02</span><span class="yr">2026</span><span><b>Nine days unattended</b><span class="d">The harness that let an agent run the cave program on its own.</span></span></a></li>
+      <li><a href="#assetforge"><span class="no">st.03</span><span class="yr">2026</span><span><b>AssetForge</b><span class="d">One concept image to a rigged, animated 3D model, fully local.</span></span></a></li>
+      <li><a href="#terrain"><span class="no">st.04</span><span class="yr">2026</span><span><b>Terrain diffusion</b><span class="d">A LoRA that worked, and two programs that closed on their own rules.</span></span></a></li>
+      <li><a href="#finetune"><span class="no">st.05</span><span class="yr">2025</span><span><b>Style LoRAs and synthetic data</b><span class="d">Four diffusion models tuned to my art; characters trained on generated conversations.</span></span></a></li>
+      <li><a href="#atlas"><span class="no">st.06</span><span class="yr">2026</span><span><b>Orbital Atlas</b><span class="d">A 3D map mod built by a team of agents, with me as lead and tester.</span></span></a></li>
+      <li><a href="#lab"><span class="no">st.07</span><span class="yr">2024</span><span><b>The lab</b><span class="d">Six machines, a GPU broker and an audit ledger for agents.</span></span></a></li>
+      <li><a href="#architectures"><span class="no">log</span><span class="yr">all</span><span><b>Architectures tried</b><span class="d">Seventeen hobby questions, the model each one got, and what happened.</span></span></a></li>
+      <li><a href="#summit"><span class="no">job</span><span class="yr">2026</span><span><b>Summit</b><span class="d">The harness where Claude runs my team's ML work, with people in control.</span></span></a></li>
+      <li><a href="#about"><span class="no">about</span><span class="yr">now</span><span><b>About me</b><span class="d">How I work, and the day job.</span></span></a></li>
+    </ol>
+  </section>
+
+  <!-- ======================= ST.01 CAVES ======================= -->
+  <article class="page" data-view="caves" data-st="1" hidden>
+    <nav class="route" aria-label="Stations"></nav>
+    <header class="ph">
+      <div class="ph-obj"><img src="img/r-cave-cast.webp" alt="Cast of a learned cave network, rendered in stone" style="width: 62%;" width="692" height="233"><img src="img/r-cave-tile.webp" alt="The learned cave in a real Minecraft client, as a mounted tile" style="width: 33%;" width="744" height="438"></div>
+      <div class="ph-lbl">
+        <span class="no"><span class="x on"></span>st.01 <em>· research · august 2026 · 564 runs</em></span>
+        <h1>Neural Karstogenesis</h1>
+        <p class="lede">Can a model learn how limestone caves are actually shaped, and use that to generate Minecraft caves that look surveyed instead of carved by noise?</p>
+        <dl class="facts"><div><dt>real cave systems</dt><dd>12</dd></div><div><dt>architectures tried</dt><dd>10</dd></div><div><dt>shipped server mod</dt><dd>83 KB</dd></div></dl>
+      </div>
+    </header>
+    <div class="body">
+      <section class="blk"><h2><b>01</b>Vanilla vs learned</h2><div class="bd">
+        <div class="tabs" role="tablist" aria-label="Cave scale" id="baTabs">
+          <button type="button" role="tab" aria-selected="true" data-k="cavern">Large · connected cavern</button>
+          <button type="button" role="tab" aria-selected="false" data-k="shaft">Medium · stepped shaft</button>
+          <button type="button" role="tab" aria-selected="false" data-k="compact">Small · side passage</button>
+        </div>
+        <div class="ba-stage" id="baStage" style="--x:50%">
+          <img id="baUnder" src="img/slider-cavern-vanilla.jpg" alt="Vanilla Minecraft cave at this location" width="607" height="341">
+          <img id="baOver" class="over" src="img/slider-cavern-learned.jpg" alt="The same location with learned cave geometry" width="607" height="341">
+          <span class="ba-handle" aria-hidden="true"></span>
+          <span class="ba-lab l">vanilla</span><span class="ba-lab r">learned</span>
+        </div>
+        <label class="sr" for="baRange">Reveal learned cave</label>
+        <input id="baRange" type="range" min="0" max="100" value="50">
+        <p class="small">Drag across the image. Same world, same seed, same camera; the right side adds the learned cave geometry. Real Minecraft 1.21.1 client, software render.</p>
+      </div></section>
+
+      <section class="blk"><h2><b>02</b>The data</h2><div class="bd">
+        <p>Twelve real cave systems from public LiDAR and survey sources, including USGS Valentine Cave and caves in France, Switzerland, Slovenia and Brazil. Each was rebuilt as a voxel void, aligned to its survey line and checked by eye before use.</p>
+        <p>Every split is by whole cave, and a ledger records which held-out caves have been spent. That rules out the easy win of testing on a neighbouring patch of the same cave.</p>
+        <div class="nums">
+          <div><b>12</b><span>real cave systems</span></div>
+          <div><b>40,933</b><span>cross-section tokens</span></div>
+          <div><b>35,061</b><span>measured transitions</span></div>
+          <div><b>83 KB</b><span>shipped server mod</span></div>
+          <div><b>0</b><span>GPU or inference in game</span></div>
+          <div><b>0.37–1.22%</b><span>median overhead vs vanilla</span></div>
+        </div>
+      </div></section>
+
+      <section class="blk"><h2><b>03</b>The architecture ladder</h2><div class="bd">
+        <p>The interesting part is what failed. Bigger generative models lost to simpler ones on held-out caves, so each learned piece in the final system only does the job it won. Select a rung.</p>
+        <div class="ladder">
+          <ul class="rungs" role="tablist" aria-label="Approaches tried" id="rungs"></ul>
+          <div class="box rung-panel" id="rungPanel" role="tabpanel" aria-live="polite"></div>
+        </div>
+        <p class="small">Filled square: kept in the final system. Half: kept as a component. Empty: dropped.</p>
+      </div></section>
+
+      <section class="blk"><h2><b>04</b>In play</h2><div class="bd">
+        <figure class="fig"><img src="img/caves-ingame.jpg" width="1280" height="720" loading="lazy" alt="Four in-game frames: a flooded trunk passage, an upper descent chamber open to the sky, a vertical bend with running water, and a lower descent chamber."><figcaption>Generated caves in play: a flooded trunk passage, two descent chambers and a bend with running water.</figcaption></figure>
+        <div class="box limits">
+          <span class="k">What this work does not show</span>
+          <ul>
+            <li>Only one seed, cave and placement is released, so there is no claim about realism across a population of caves.</li>
+            <li>The wall operator imitates a synthetic hydraulic teacher, not observed geological time.</li>
+            <li>Twelve caves is a small dataset, and the one completed blind review preferred the procedural baseline.</li>
+            <li>One release candidate failed its frozen performance gate; the final build was not re-measured.</li>
+          </ul>
+        </div>
+      </div></section>
+    </div>
+    <nav class="next" aria-label="Next station"></nav>
+  </article>
+
+  <!-- ======================= ST.02 NINE DAYS ======================= -->
+  <article class="page" data-view="nine" data-st="2" hidden>
+    <nav class="route" aria-label="Stations"></nav>
+    <header class="ph">
+      <div class="ph-obj"><img src="img/r-runs-bars.webp" alt="Bar sculpture of experiments run per day, the busiest day in orange" style="width: 46%;" width="659" height="760"></div>
+      <div class="ph-lbl">
+        <span class="no"><span class="x on"></span>st.02 <em>· agent harness · 9 to 17 august 2026</em></span>
+        <h1>Nine days unattended</h1>
+        <p class="lede">The cave research was run by a coding agent working on its own for nine days. I set the question, the hard limits and how results would be judged. The agent wrote the code, trained the models, ran 564 numbered experiments and wrote up each one, including the ones that failed.</p>
+        <dl class="facts"><div><dt>numbered runs</dt><dd>564</dd></div><div><dt>filed as failures</dt><dd>74</dd></div><div><dt>busiest day</dt><dd>141</dd></div></dl>
+      </div>
+    </header>
+    <div class="body">
+      <section class="blk"><h2><b>01</b>Day by day</h2><div class="bd">
+        <div class="days" id="days" role="group" aria-label="Nine days of the cave program. Select a day."></div>
+        <div class="days-x" id="daysX" aria-hidden="true"></div>
+        <div class="daykey"><span><i style="background:repeating-linear-gradient(135deg,transparent 0 3px,rgba(27,26,23,.55) 3px 4.5px)"></i>building the harness (commits, fixed height)</span><span><i style="background:var(--note)"></i>CaveWeaver run folders</span><span><i style="background:var(--ink-2)"></i>Neural Karstogenesis numbered runs</span></div>
+        <div class="box" id="dayPanel" aria-live="polite"></div>
+        <p class="small">Bar heights are runs per day. Dates come from file and commit timestamps: first commit 9 Aug 01:50, research record closed 17 Aug 11:52. The stone sculpture at the top is days 5 to 9.</p>
+        <div class="nums">
+          <div><b>564</b><span>numbered runs</span></div>
+          <div><b>892</b><span>run folders, retries included</span></div>
+          <div><b>74</b><span>runs filed by name as failures</span></div>
+          <div><b>63</b><span>confirmation or replication runs</span></div>
+          <div><b>38</b><span>evidence checks on the release candidate</span></div>
+        </div>
+      </div></section>
+
+      <section class="blk"><h2><b>02</b>What the harness had to do</h2><div class="bd">
+        <p>Leaving an agent alone this long works only if it can't quietly fool you, or itself. Each of these mechanisms is in the record because an unattended agent needed it.</p>
+        <div class="grid3">
+          <div class="box guard"><h3>Write the pass rule before the result</h3><p>Each experiment was committed in three steps: a preregistration with its gate, a binding to exact inputs and hashes, then the recorded result.</p><p class="ev">Run 533 failed its frozen performance gate on an 8.6% tail. It stayed failed, and the record calls it a negative result.</p></div>
+          <div class="box guard"><h3>A failure is never reclassified</h3><p>When a metric turned out to be the problem, the agent could change how the failed run is read, but not its verdict.</p><p class="ev">Run 554 showed Run 553's feature-count metric was unstable. Run 553 is still recorded as failed.</p></div>
+          <div class="box guard"><h3>Blind roles catch the agent's own mistakes</h3><p>Candidates were compared with their research roles hidden, then unblinded before anything was selected.</p><p class="ev">Run 423 picked a showcase. Run 424 unblinded it, found it was the control arm and corrected the pick.</p></div>
+          <div class="box guard"><h3>Audit the artifact, not the counter</h3><p>Runtime counters can pass while the saved world is wrong, so stopped saves were opened and checked cell by cell.</p><p class="ev">Run 464 found 134 water cells inside a generated cave whose runtime counters had passed. Fixing that took until Run 531.</p></div>
+          <div class="box guard"><h3>Disposable worlds, failing closed</h3><p>Every experiment ran on fresh or copied worlds. The live multiplayer servers and the shared GPU were off limits.</p><p class="ev">Run 434's first live release hit a timing bug and stopped with zero unsafe writes.</p></div>
+          <div class="box guard"><h3>A harness bug is not a result</h3><p>When the harness broke, the agent recorded it, changed only the broken piece and reran without looking at outcomes.</p><p class="ev">Run 310 found a Gradle child reading the next lines of its input. Attempt B changed only stdin isolation.</p></div>
+        </div>
+      </div></section>
+
+      <section class="blk"><h2><b>03</b>Where I stayed in the loop</h2><div class="bd">
+        <div class="two">
+          <div class="box">
+            <span class="k">My calls</span>
+            <ul>
+              <li>Setting the question, the hard limits and what the agent could touch.</li>
+              <li>The blind visual review. I preferred the procedural baseline in both comparisons, and that result is published as it came out.</li>
+              <li>Approving release preparation. The approval is a commit of its own.</li>
+              <li>Deciding to stop at one exact seed and placement instead of claiming more.</li>
+            </ul>
+          </div>
+          <div class="box limits">
+            <span class="k">What I'd change next time</span>
+            <ul>
+              <li>The blind human review came late. Earlier review would have shown sooner that realism, not engineering, was the open problem.</li>
+              <li>The agent found 74 failures and documented every one, but 564 runs is too many for one person to audit. The next harness needs a summary layer a reviewer can trust without reading every run.</li>
+            </ul>
+          </div>
+        </div>
+      </div></section>
+
+      <section class="blk"><h2><b>04</b>Where these lessons went</h2><div class="bd">
+        <div class="grid3">
+          <a class="box" href="#lab" style="text-decoration:none"><span class="k">st.07 · the lab</span><h3>An agent control plane</h3><p>Leases, tool walls, autonomy tiers and a hash-chained ledger, so agents across six machines run under the same rules.</p></a>
+          <a class="box" href="#terrain" style="text-decoration:none"><span class="k">st.04 · terrain</span><h3>Pre-registered programs</h3><p>Terrain diffusion ran under a closure clause, and the program ended when its own rules said so.</p></a>
+          <a class="box" href="#summit" style="text-decoration:none"><span class="k">day job · summit</span><h3>Guardrails for my team's agents</h3><p>A plugin with guardrails took harmful agent runs from 4 of 82 to 0 of 82 in an ablation study.</p></a>
+        </div>
+      </div></section>
+    </div>
+    <nav class="next" aria-label="Next station"></nav>
+  </article>
+
+  <!-- ======================= ST.03 ASSETFORGE ======================= -->
+  <article class="page" data-view="assetforge" data-st="3" hidden>
+    <nav class="route" aria-label="Stations"></nav>
+    <header class="ph">
+      <div class="ph-obj"><img src="img/r-minotaur.webp" alt="Minotaur generated from one concept image" style="width: 17%;" width="395" height="559"><img src="img/r-creature.webp" alt="One-eyed creature, auto-rigged" style="width: 21%;" width="617" height="578"><img src="img/r-pedal.webp" alt="Skull guitar pedal" style="width: 23%;" width="760" height="620"><img src="img/r-computer.webp" alt="Retro computer" style="width: 23%;" width="745" height="640"></div>
+      <div class="ph-lbl">
+        <span class="no"><span class="x on"></span>st.03 <em>· generative 3d · june to september 2026 · fully local</em></span>
+        <h1>AssetForge</h1>
+        <p class="lede">I wanted game assets from concept art without sending anything to a cloud service. AssetForge chains open models into one resumable command that runs on a single AMD box. Every 3D object on this site came out of it.</p>
+        <dl class="facts"><div><dt>inputs end to end</dt><dd>12</dd></div><div><dt>asset types</dt><dd>5</dd></div><div><dt>cloud calls</dt><dd>0</dd></div></dl>
+      </div>
+    </header>
+    <div class="body">
+      <section class="blk"><h2><b>01</b>The pipeline</h2><div class="bd">
+        <ol class="pipe" aria-label="Pipeline stages">
+          <li><span>Image<small>concept art</small></span></li>
+          <li><span>Cut-out<small>rembg</small></span></li>
+          <li><span>Mesh<small>Hunyuan3D-2.1</small></span></li>
+          <li><span>Clean-up<small>decimate, retopo</small></span></li>
+          <li><span>PBR texture<small>native painter, ~100 s</small></span></li>
+          <li><span>Rig<small>RigAnything · SAM 3 + Qwen3-VL</small></span></li>
+          <li><span>Animate<small>Blender, headless</small></span></li>
+          <li><span>GLB<small>with preview</small></span></li>
+        </ol>
+      </div></section>
+
+      <section class="blk"><h2><b>02</b>In and out</h2><div class="bd">
+        <div class="pairs">
+          <figure class="fig"><div class="pair"><img src="img/af-pedal-in.jpg" alt="Input: pixel-art skull guitar pedal" loading="lazy"><img src="img/af-pedal-3d.jpg" alt="Output: textured 3D pedal" loading="lazy"></div><figcaption>Skull pedal · object</figcaption></figure>
+          <figure class="fig"><div class="pair"><img src="img/af-stone-face-in.jpg" alt="Input: illustration of a carved stone face" loading="lazy"><img src="img/af-stone-face-3d.jpg" alt="Output: 3D stone face" loading="lazy"></div><figcaption>Stone face · object</figcaption></figure>
+          <figure class="fig"><div class="pair"><img src="img/af-computer-in.jpg" alt="Input: illustration of a retro computer" loading="lazy"><img src="img/af-computer-3d.jpg" alt="Output: 3D retro computer" loading="lazy"></div><figcaption>Retro computer · object</figcaption></figure>
+          <figure class="fig"><div class="pair"><img src="img/af-swordsman-in.jpg" alt="Input: pixel-art swordsman" loading="lazy"><img src="img/af-swordsman-3d.jpg" alt="Output: rigged 3D swordsman" loading="lazy"></div><figcaption>Swordsman · rigged, walks</figcaption></figure>
+        </div>
+        <p class="small">Left of each pair is the input image; right is the generated model.</p>
+        <div class="two">
+          <figure class="fig"><video src="media/creature-turntable.mp4" muted loop playsinline autoplay preload="metadata" width="720" height="720" aria-label="Turntable of a generated one-eyed creature"></video><figcaption>Turntable of a generated creature, from a single concept image.</figcaption></figure>
+          <figure class="fig"><video src="media/creature-walk.mp4" muted loop playsinline autoplay preload="metadata" width="768" height="768" aria-label="The same creature walking with an automatic rig"></video><figcaption>The same creature, auto-rigged with a procedural walk cycle, in a room of other generated assets.</figcaption></figure>
+        </div>
+      </div></section>
+
+      <section class="blk"><h2><b>03</b>What made it work</h2><div class="bd">
+        <div class="grid3">
+          <div class="box"><h3>Texturing on AMD</h3><p>Hunyuan3D's native PBR painter was widely reported as a dead end on ROCm. It came down to import order: loading torch before the custom rasterizer. The fix is written up with a proof asset.</p></div>
+          <div class="box"><h3>Rigging by type</h3><p>Creatures get a learned auto-rig. Mechanical objects get parts segmented by SAM 3, with a vision-language model reasoning about which parts hinge where.</p></div>
+          <div class="box"><h3>Resumable stages</h3><p>Each stage writes to a manifest, so a failed texture bake reruns alone.</p></div>
+        </div>
+        <div class="box limits"><span class="k">Limits, as recorded</span><p>High-to-low texture baking was unfinished, scenes are only 2.5D, part segmentation depends on the input, and several model weights are non-commercial, so this stays a personal tool.</p></div>
+      </div></section>
+    </div>
+    <nav class="next" aria-label="Next station"></nav>
+  </article>
+
+  <!-- ======================= ST.04 TERRAIN ======================= -->
+  <article class="page" data-view="terrain" data-st="4" hidden>
+    <nav class="route" aria-label="Stations"></nav>
+    <header class="ph">
+      <div class="ph-obj"><img src="img/r-terrain-tile.webp" alt="Terrain from a fine-tuned diffusion model, as a mounted relief tile" style="width: 82%;" width="747" height="471"></div>
+      <div class="ph-lbl">
+        <span class="no"><span class="x on"></span>st.04 <em>· research · june to august 2026 · ~90 gpu-hours</em></span>
+        <h1>Terrain diffusion, and when to stop</h1>
+        <p class="lede">I wanted Minecraft worlds with real-looking mountains and rivers, generated by a published terrain diffusion model. Fine-tuning it worked once, spectacularly, and then taught me where the model's limits were.</p>
+        <dl class="facts"><div><dt>mean elevation after LoRA</dt><dd>+161 m</dd></div><div><dt>stats matching Earth</dt><dd>10 of 12</dd></div><div><dt>river exponent vs Earth</dt><dd>0.21 / 0.38</dd></div></dl>
+      </div>
+    </header>
+    <div class="body">
+      <section class="blk"><h2><b>01</b>The first win</h2><div class="bd">
+        <figure class="fig"><img src="img/terrain-lora-before-after.jpg" width="1289" height="668" loading="lazy" alt="Two shaded-relief maps. Left, the baseline model produces a blurry, mostly ocean field. Right, after a rank-8 LoRA trained on Himalayan elevation data, the same sample has ridges, valleys and fjords."><figcaption>A rank-8 LoRA on the coarse stage, trained for 400 to 600 steps on real Himalayan elevation data, turned a blurry, mostly-ocean sample (mean −1,588 m) into ridges, valleys and fjords (mean +161 m). It trained in seconds on an integrated GPU and was played in Minecraft.</figcaption></figure>
+      </div></section>
+
+      <section class="blk"><h2><b>02</b>Is it Earth-like?</h2><div class="bd">
+        <p>Against Copernicus 30 m elevation data, with the disagreement between two Earth sensors as the noise floor, the model matched Earth on 10 of 12 terrain statistics. Its river-network exponent did not: <span class="num">0.21</span> against <span class="num">0.38</span>, lower in <span class="num">17 of 17</span> paired windows (<span class="num">p = 2×10⁻⁵</span>).</p>
+        <p>Four base-stage LoRAs failed to fix it. In one, training loss fell from <span class="num">0.875</span> to <span class="num">0.405</span> while the target structure moved about <span class="num">5×</span> further from Earth: a loss going down for the wrong reason. A synthetic-data teacher (a stream-power erosion simulator producing training targets) failed calibration on all <span class="num">43</span> settings.</p>
+        <p>A second program trained pixel-space EDM diffusion from scratch, at 18M and 50M parameters, on <span class="num">58,243</span> real-Earth patches. It avoided the collapse that sank the first, and SPADE conditioning doubled how strongly it followed river networks, but it missed its gates and closed itself at a registered checkpoint.</p>
+      </div></section>
+
+      <section class="blk"><h2><b>03</b>How both programs ended</h2><div class="bd">
+        <div class="two">
+          <div class="box limits"><span class="k">Closed by its own rule</span><p>The final attempt of the first program was registered in advance with a binding clause: any failed checkpoint closes the program for good. The clause fired, and it was recorded as a closure, not a refutation, because the design itself never got tested.</p></div>
+          <div class="box"><span class="k">What lasts</span><p>An internal audit had earlier found 4 of 5 headline claims defective; those were withdrawn in writing. The Appalachian hold-out region was never spent. What lasts is a drainage-realism benchmark I couldn't find in published work.</p></div>
+        </div>
+      </div></section>
+    </div>
+    <nav class="next" aria-label="Next station"></nav>
+  </article>
+
+  <!-- ======================= ST.05 FINE-TUNING ======================= -->
+  <article class="page" data-view="finetune" data-st="5" hidden>
+    <nav class="route" aria-label="Stations"></nav>
+    <header class="ph">
+      <div class="ph-obj"><img src="img/r-pumpkin-tile.webp" alt="Pumpkin character from a FLUX style LoRA, as a mounted tile" style="width: 47%;" width="748" height="472"><img src="img/r-bazaar-tile.webp" alt="Space-station market from a FLUX style LoRA, as a mounted tile" style="width: 47%;" width="748" height="472"></div>
+      <div class="ph-lbl">
+        <span class="no"><span class="x on"></span>st.05 <em>· fine-tuning · nov 2025 to apr 2026 · my own hardware</em></span>
+        <h1>Style LoRAs and synthetic data</h1>
+        <p class="lede">Two hobby questions led to fine-tuning. Can an image model paint in the style of my own art? Can a small language model hold a personality instead of just imitating its speech? Both ran locally, and the second needed a synthetic data pipeline.</p>
+        <dl class="facts"><div><dt>diffusion models tuned</dt><dd>4</dd></div><div><dt>FLUX.1 LoRA steps</dt><dd>3,250</dd></div><div><dt>examples per character</dt><dd>~350</dd></div></dl>
+      </div>
+    </header>
+    <div class="body">
+      <section class="blk"><h2><b>01</b>Style LoRAs on four models</h2><div class="bd">
+        <p>The training set is my own library of generated art, captioned by script from each image's original prompt. I trained LoRAs with ai-toolkit on FLUX.1-dev, Stable Diffusion 3.5, FLUX.2 Klein and the 14B Wan 2.2 Animate video model, then used the FLUX one for concept art.</p>
+        <span class="kk">From the training set</span>
+        <div class="row4">
+          <img src="img/ft-train-1.jpg" alt="Training image: a pixel-art hillside city block" loading="lazy" width="480" height="480">
+          <img src="img/ft-train-2.jpg" alt="Training image: furry creatures at a dinner table under a galaxy" loading="lazy" width="480" height="480">
+          <img src="img/ft-train-3.jpg" alt="Training image: an anthropomorphic raven running a race" loading="lazy" width="480" height="480">
+          <img src="img/ft-train-4.jpg" alt="Training image: a crowned blue figure in a red dungeon" loading="lazy" width="480" height="480">
+        </div>
+        <span class="kk">Outputs</span>
+        <div class="tabs" role="group" aria-label="Filter outputs by model" id="galFilters">
+          <button type="button" aria-pressed="true" data-g="all">All outputs</button>
+          <button type="button" aria-pressed="false" data-g="flux1">FLUX.1-dev</button>
+          <button type="button" aria-pressed="false" data-g="klein">FLUX.2 Klein</button>
+          <button type="button" aria-pressed="false" data-g="sd35">SD 3.5</button>
+        </div>
+        <div class="gal" id="gal">
+          <figure data-g="flux1"><img src="img/ft-out-pumpkin.jpg" alt="Generated: a pumpkin-headed creature on a snowy moon" loading="lazy" width="640" height="640"><figcaption><b>FLUX.1 + LoRA</b> · anthropomorphic pumpkin</figcaption></figure>
+          <figure data-g="flux1"><img src="img/ft-out-bazaar.jpg" alt="Generated: a space-station market lined with creatures" loading="lazy" width="640" height="640"><figcaption><b>FLUX.1 + LoRA</b> · market inside a space station</figcaption></figure>
+          <figure data-g="flux1"><img src="img/ft-out-beast.jpg" alt="Generated: a horned golden cosmic beast" loading="lazy" width="640" height="640"><figcaption><b>FLUX.1 + LoRA</b> · cosmic beast</figcaption></figure>
+          <figure data-g="flux1"><img src="img/ft-out-astronaut.jpg" alt="Generated: a frog-faced astronaut on a subway" loading="lazy" width="640" height="640"><figcaption><b>FLUX.1 + LoRA</b> · vegetable astronaut on a subway</figcaption></figure>
+          <figure data-g="flux1"><img src="img/ft-out-palace.jpg" alt="Generated: a yellow palace with circuit-line stone" loading="lazy" width="640" height="640"><figcaption><b>FLUX.1 + LoRA</b> · town plaza architecture</figcaption></figure>
+          <figure data-g="flux1"><img src="img/ft-out-cowboy.jpg" alt="Generated: a robot-faced alien cowboy on a moonscape" loading="lazy" width="640" height="640"><figcaption><b>FLUX.1 + LoRA</b> · cowboy alien with a robot face</figcaption></figure>
+          <figure data-g="flux1"><img src="img/ft-out-town.jpg" alt="Generated: a hillside town under a large moon" loading="lazy" width="640" height="640"><figcaption><b>FLUX.1 + LoRA</b> · town with strange residents</figcaption></figure>
+          <figure data-g="klein"><img src="img/ft-out-dragon.jpg" alt="Generated: a neon geometric cosmic dragon" loading="lazy" width="640" height="640"><figcaption><b>FLUX.2 Klein + LoRA</b> · cosmic dragon</figcaption></figure>
+          <figure data-g="sd35"><img src="img/ft-out-sd35-creature.jpg" alt="Generated: an armored creature sitting under a tree" loading="lazy" width="640" height="640"><figcaption><b>SD 3.5 + LoRA</b> · tin-armored creature under a tree</figcaption></figure>
+        </div>
+        <div class="nums">
+          <div><b>4</b><span>base models: three image, one video</span></div>
+          <div><b>3,250</b><span>steps on the FLUX.1 LoRA</span></div>
+          <div><b>300 / 834</b><span>captioned images in the two training sets</span></div>
+          <div><b>2</b><span>Wan 2.2 noise experts trained, 1,000 steps</span></div>
+        </div>
+        <div class="box limits"><span class="k">Not shown, and why</span><p>The Wan 2.2 video LoRA restyled a talking-head clip of a real person, so those frames stay off this page. There is no blind comparison against the base models, and the training images are AI-generated art from my own prompts.</p></div>
+      </div></section>
+
+      <section class="blk"><h2><b>02</b>Characters from synthetic conversations</h2><div class="bd">
+        <p>I wanted three AI characters whose personalities shape how they reason, not only how they talk. There was no data for characters that don't exist, so I built a pipeline to make it.</p>
+        <ol class="pipe" aria-label="Persona data pipeline">
+          <li><span>Bible<small>persona, history, opinions</small></span></li>
+          <li><span>Generate<small>Claude writes data</small></span></li>
+          <li><span>Filter<small>format, length, voice</small></span></li>
+          <li><span>Mix<small>chat, logs, multi-turn</small></span></li>
+          <li><span>LoRA<small>Unsloth, rank 64</small></span></li>
+          <li><span>Compare<small>base vs tuned</small></span></li>
+        </ol>
+        <div class="two">
+          <ul class="tight">
+            <li><b>Character bibles first.</b> Each character has a written personality, a history of 16,000 to 26,000 characters, opinions and relationships, and a shared lore file. A domain list spreads the conversations across more than 15 kinds of talk, from casual chat to negotiation.</li>
+            <li><b>Four data types.</b> Conversations with in-character reasoning, internal journal entries with no user at all, 10 to 20 turn conversations where the character steers or refuses, and chosen-versus-flat preference pairs.</li>
+            <li><b>Automatic quality filter.</b> Every item is checked for format, length, a reasoning block, forbidden phrases and a voice score against each character's marker words before it reaches training.</li>
+            <li><b>Two rounds.</b> v1 (about 200 examples per character) showed speech patterns transfer. v2 (about 350) went after reasoning and agency. Qwen3.5-9B first, then Gemma 4 E4B, both trained on the 128 GB AMD box under ROCm.</li>
+          </ul>
+          <div class="box chat" aria-label="Example from the tuned Gemma 4 model">
+            <span class="k">Spec, from the character bible</span>
+            <p class="spec">Damaged cadence. Sentences start and sometimes just. Stop. Then restart from a different angle. Repetition as skip, like a record skipping.</p>
+            <span class="k">Prompt</span>
+            <p class="u">I just deployed a fix to production. It broke everything.</p>
+            <span class="k">Tuned Gemma 4 E4B, character “Fulcrim”</span>
+            <p class="a">Broke... everything.<br><br>Deploy. Fix. Production. A cascade failure. Predictable.<br><br>What. Was. The. Fix. Specifically. Detail.<br><br>Tell me. What layer. Did. It touch. Database schema? API endpoint validation? Frontend rendering logic?<br><br>Don't give me vague. Just. The. Stack trace. Or the commit hash. Whatever. Now.</p>
+            <p class="small">Excerpt from the comparison log, trimmed. Blunt, broken in rhythm and still technically on point, as the bible asks.</p>
+          </div>
+        </div>
+        <div class="box limits"><span class="k">Limits, as recorded</span><p>The comparisons are side-by-side reads, not a scored evaluation. Preference pairs were generated, but I have no record of a preference-training run.</p></div>
+      </div></section>
+    </div>
+    <nav class="next" aria-label="Next station"></nav>
+  </article>
+
+  <!-- ======================= ST.06 ATLAS ======================= -->
+  <article class="page" data-view="atlas" data-st="6" hidden>
+    <nav class="route" aria-label="Stations"></nav>
+    <header class="ph">
+      <div class="ph-obj"><img src="img/r-atlas-tile.webp" alt="Orbital Atlas world map, as a mounted tile" style="width: 88%;" width="744" height="438"></div>
+      <div class="ph-lbl">
+        <span class="no"><span class="x on"></span>st.06 <em>· product · september 2026 to now · closed beta</em></span>
+        <h1>Orbital Atlas, built by an agent team</h1>
+        <p class="lede">A 3D map mod for Minecraft, taken from first commit to a closed beta with outside testers in nine weeks, with agents writing nearly all of the code.</p>
+        <dl class="facts"><div><dt>release candidates</dt><dd>172</dd></div><div><dt>agents at peak</dt><dd>~18</dd></div><div><dt>first commit to beta</dt><dd>9 wk</dd></div></dl>
+      </div>
+    </header>
+    <div class="body">
+      <section class="blk"><h2><b>01</b>The map</h2><div class="bd">
+        <figure class="fig"><img src="img/atlas-world-map.jpg" width="1600" height="900" loading="lazy" alt="Orbital Atlas world map: a tilted 3D island with rivers, biome labels, waypoints and mob icons over parchment."><figcaption>The world map: real terrain in tilted 3D, parchment over unexplored land, live mob icons and biome labels.</figcaption></figure>
+      </div></section>
+      <section class="blk"><h2><b>02</b>How the team worked</h2><div class="bd">
+        <p>A lead Claude agent coordinated up to about 18 agents across seven workstreams, with Codex writing most features and independent reviewer agents checking each change. I played every build, made the product calls and held final say on every release and every public word.</p>
+        <p>Builds passed 6,600 tests and still broke on my real world, so the agents got a harness that drives real game clients on four machines, exposed to them through MCP. Changes are judged by interleaved A/B runs with A/A noise baselines and screenshot regression gates.</p>
+        <div class="nums">
+          <div><b>172</b><span>hash-pinned release candidates</span></div>
+          <div><b>9,538</b><span>tests in the release gate</span></div>
+          <div><b>4</b><span>OS and GPU test machines</span></div>
+          <div><b>~5,000</b><span>archived real-client runs</span></div>
+          <div><b>~18</b><span>agents at peak</span></div>
+        </div>
+      </div></section>
+      <section class="blk"><h2><b>03</b>A win I turned down</h2><div class="bd">
+        <div class="box limits"><span class="k">Kept off</span><p>An eight-hour autonomous agent search found an 82% faster first map load. It also left revisited areas blank more often and failed the memory gate on my real world, so it stayed off. The agents' own report flagged that the benchmark was noisier than some effects it measured, and the next round fixed the benchmark first.</p></div>
+      </div></section>
+    </div>
+    <nav class="next" aria-label="Next station"></nav>
+  </article>
+
+  <!-- ======================= ST.07 LAB ======================= -->
+  <article class="page" data-view="lab" data-st="7" hidden>
+    <nav class="route" aria-label="Stations"></nav>
+    <header class="ph">
+      <div class="ph-obj"><img src="img/r-ledger-bars.webp" alt="Bar sculpture of the agent ledger: runs, leases, parked questions, and human decisions in orange" style="width: 46%;" width="651" height="739"></div>
+      <div class="ph-lbl">
+        <span class="no"><span class="x on"></span>st.07 <em>· infrastructure · november 2024 to now</em></span>
+        <h1>A homelab that researches and builds on its own</h1>
+        <p class="lede">Six machines, fourteen containers and a set of rules that let agents run experiments and ship software overnight without being able to do anything I can't undo. The orange bar in the sculpture is how often a person had to decide.</p>
+        <dl class="facts"><div><dt>ledger events</dt><dd>17,672</dd></div><div><dt>agent runs</dt><dd>2,914</dd></div><div><dt>human decisions</dt><dd>92</dd></div></dl>
+      </div>
+    </header>
+    <div class="body">
+      <section class="blk"><h2><b>01</b>How it fits together</h2><div class="bd">
+        <div class="lab">
+          <svg id="labsvg" viewBox="0 0 640 560" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Lab architecture. Select a box for details.">
+            <defs>
+              <marker id="mh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="hd" d="M0,0 L10,5 L0,10 z"/></marker>
+              <marker id="mu" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="hu" d="M0,0 L10,5 L0,10 z"/></marker>
+            </defs>
+            <text class="lane" x="0" y="44">DECIDE</text><text class="lane" x="0" y="134">PLAN</text><text class="lane" x="0" y="232">RUN</text><text class="lane" x="0" y="404">COMPUTE</text><text class="lane" x="0" y="508">STATE</text>
+            <g class="n human" tabindex="0" role="button" data-n="me"><rect x="200" y="14" width="300" height="54"/><text x="350" y="38" text-anchor="middle">Me</text><text class="s" x="350" y="56" text-anchor="middle">policy · approvals · final calls</text></g>
+            <g class="n" tabindex="0" role="button" data-n="lead"><rect x="90" y="106" width="250" height="56"/><text x="215" y="130" text-anchor="middle">Lead agent</text><text class="s" x="215" y="148" text-anchor="middle">Claude Code · sub-agents · memory</text></g>
+            <g class="n" tabindex="0" role="button" data-n="codex"><rect x="360" y="106" width="250" height="56"/><text x="485" y="130" text-anchor="middle">Codex threads</text><text class="s" x="485" y="148" text-anchor="middle">long-running build work</text></g>
+            <g class="n" tabindex="0" role="button" data-n="org"><rect x="90" y="204" width="300" height="58"/><text x="240" y="228" text-anchor="middle">Agent control plane</text><text class="s" x="240" y="246" text-anchor="middle">27 jobs · tool walls · ledger</text></g>
+            <g class="n" tabindex="0" role="button" data-n="bus"><rect x="410" y="204" width="200" height="58"/><text x="510" y="228" text-anchor="middle">Notification bus</text><text class="s" x="510" y="246" text-anchor="middle">signals only</text></g>
+            <g class="n" tabindex="0" role="button" data-n="broker"><rect x="90" y="292" width="520" height="44"/><text x="350" y="319" text-anchor="middle">GPU broker and leases</text></g>
+            <g class="n" tabindex="0" role="button" data-n="fd"><rect x="90" y="374" width="164" height="58"/><text x="172" y="398" text-anchor="middle">Strix Halo</text><text class="s" x="172" y="416" text-anchor="middle">128 GB · local LLMs</text></g>
+            <g class="n" tabindex="0" role="button" data-n="pve"><rect x="268" y="374" width="164" height="58"/><text x="350" y="398" text-anchor="middle">Proxmox host</text><text class="s" x="350" y="416" text-anchor="middle">RTX 4060 Ti · 14 CTs</text></g>
+            <g class="n" tabindex="0" role="button" data-n="test"><rect x="446" y="374" width="164" height="58"/><text x="528" y="398" text-anchor="middle">Test machines</text><text class="s" x="528" y="416" text-anchor="middle">RTX 4080 · M4 Pro</text></g>
+            <g class="n" tabindex="0" role="button" data-n="nas"><rect x="90" y="482" width="520" height="48"/><text x="350" y="502" text-anchor="middle">NAS and monitoring</text><text class="s" x="350" y="520" text-anchor="middle">shared state · results · backups · alerts</text></g>
+            <path class="a" d="M300 68 L240 104" marker-end="url(#mh)"/><path class="a" d="M400 68 L460 104" marker-end="url(#mh)"/>
+            <path class="a" d="M215 162 L225 202" marker-end="url(#mh)"/><path class="a" d="M485 162 L360 202" marker-end="url(#mh)"/>
+            <path class="a" d="M240 262 L240 290" marker-end="url(#mh)"/><path class="a" d="M172 336 L172 372" marker-end="url(#mh)"/>
+            <path class="a" d="M350 336 L350 372" marker-end="url(#mh)"/><path class="a" d="M528 336 L528 372" marker-end="url(#mh)"/>
+            <path class="a" d="M350 432 L350 480" marker-end="url(#mh)"/>
+            <path class="u" d="M390 233 L408 233" marker-end="url(#mu)"/><path class="u" d="M610 220 C 636 200, 636 40, 502 40" marker-end="url(#mu)"/>
+          </svg>
+          <div class="box" id="labDetail" aria-live="polite"></div>
+        </div>
+        <p class="small">Solid arrows carry work down. Dashed orange arrows carry alerts up to my phone, sorted into critical, warning and info. Nothing on the alert path can start an action. Select a box.</p>
+        <div class="nums">
+          <div><b>17,672</b><span>ledger events, sha256-chained</span></div>
+          <div><b>2,914</b><span>agent runs started</span></div>
+          <div><b>1,782</b><span>GPU leases granted</span></div>
+          <div><b>685</b><span>questions agents parked for me</span></div>
+          <div><b>92</b><span>recorded human decisions</span></div>
+        </div>
+      </div></section>
+      <section class="blk"><h2><b>02</b>Failures that became rules</h2><div class="bd">
+        <div class="tbl"><table>
+          <thead><tr><th>What happened</th><th>Rule now</th></tr></thead>
+          <tbody>
+            <tr><td>A training run died at step 7,650 and emitted constants for 52,000 more steps behind a clean DONE marker</td><td>Watch health signals, not liveness</td></tr>
+            <tr><td>Agents reported remote jobs as running that had died at launch; a watcher matched its own command line for three hours</td><td>Verify by artifact, never by an agent's claim</td></tr>
+            <tr><td>The control plane looked healthy while its ledger recorded nothing, because of a uid mapping bug</td><td>Ledger failures fail loudly; the reconciler reports and never repairs</td></tr>
+            <tr><td>An embedding upgrade measured cosine parity 0.99984 against a 0.9999 gate</td><td>Blocked; thresholds are not relaxed after the fact</td></tr>
+            <tr><td>Single samples inverted 24-sample results four times</td><td>Interleaved A/B with at least three runs per arm before any claim</td></tr>
+          </tbody>
+        </table></div>
+      </div></section>
+    </div>
+    <nav class="next" aria-label="Next station"></nav>
+  </article>
+
+  <!-- ======================= ARCHITECTURES ======================= -->
+  <article class="page" data-view="architectures" hidden>
+    <nav class="route" aria-label="Stations"></nav>
+    <header class="ph">
+      <div class="ph-box">
+        <span class="kk">field log</span>
+        <p class="small">Every row started as a hobby question. Results include the negative ones. Rows link back to the station they came from where there is one.</p>
+      </div>
+      <div class="ph-lbl">
+        <span class="no"><span class="x"></span>log <em>· breadth · 2024–2026</em></span>
+        <h1>Architectures I've tried</h1>
+        <p class="lede">Seventeen questions, the model each one got, and what the measurement said.</p>
+      </div>
+    </header>
+    <div class="body">
+      <section class="blk"><h2><b>01</b>The log</h2><div class="bd">
+        <div class="tabs" role="group" aria-label="Filter by kind" id="brFilters">
+          <button type="button" aria-pressed="true" data-f="all">All</button>
+          <button type="button" aria-pressed="false" data-f="gen">Generative</button>
+          <button type="button" aria-pressed="false" data-f="3d">3D</button>
+          <button type="button" aria-pressed="false" data-f="llm">Language models</button>
+          <button type="button" aria-pressed="false" data-f="agent">Agents</button>
+          <button type="button" aria-pressed="false" data-f="data">Synthetic data</button>
+        </div>
+        <div class="tbl"><table id="breadthTbl">
+          <thead><tr><th>Hobby question</th><th>Architecture</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr data-k="gen"><td>Can a terrain model make real mountains?</td><td>Rank-8 LoRA on a diffusion coarse stage</td><td>Blurry ocean to ridges and fjords in 400 to 600 steps</td></tr>
+            <tr data-k="gen"><td>Is the terrain Earth-like?</td><td>Pretrained cascaded latent diffusion</td><td>10 of 12 statistics match; river exponent <span class="num">0.21</span> vs <span class="num">0.38</span></td></tr>
+            <tr data-k="gen"><td>Can fine-tuning fix the rivers?</td><td>Base-stage LoRAs; retrained encoder</td><td>Loss fell while realism got about <span class="num">5×</span> worse; closed</td></tr>
+            <tr data-k="gen"><td>Can I steer it without training?</td><td>Best-of-N and SMC with a reward gate</td><td><span class="num">0 of 17</span> candidate rewards admissible</td></tr>
+            <tr data-k="gen"><td>Train it from scratch?</td><td>Pixel-space EDM U-Net, 18M and 50M; SPADE conditioning</td><td>No collapse; SPADE <span class="num">2.0×</span> stronger; gates missed</td></tr>
+            <tr data-k="gen"><td>Learn how caves are shaped?</td><td>Sequence diffusion, residual EDM, score model, GRU, MLP operator</td><td>Hybrid kept; simpler models won where diffusion lost</td></tr>
+            <tr data-k="3d"><td>Turn concept art into game assets?</td><td>Hunyuan3D-2.1, native PBR painter, RigAnything, SAM 3, Blender</td><td>12 inputs to rigged, animated GLBs, fully local on AMD</td></tr>
+            <tr data-k="gen"><td>Can an image model paint in my art style?</td><td>Style LoRAs on FLUX.1-dev, SD 3.5 and FLUX.2 Klein (ai-toolkit)</td><td><span class="num">3,250</span>-step FLUX LoRA on <span class="num">300</span> captioned images, used for concept art</td></tr>
+            <tr data-k="gen"><td>Can the style carry into video?</td><td>Style LoRA on Wan 2.2 Animate 14B, both noise experts</td><td>Trained <span class="num">1,000</span> steps and applied to a talking-head clip</td></tr>
+            <tr data-k="llm"><td>Can a small model hold a personality?</td><td>Rank-64 LoRAs on Qwen3.5-9B and Gemma 4 E4B from a synthetic data pipeline</td><td>About <span class="num">350</span> filtered examples per character; voice transfers, no scored eval yet</td></tr>
+            <tr data-k="data"><td>Teach realism with a simulator?</td><td>Stream-power erosion solver as a synthetic teacher</td><td>Calibration failed on all <span class="num">43</span> settings; no-go</td></tr>
+            <tr data-k="data"><td>Feed a neural world model?</td><td>Headless procedural driving, 50 episodes × 1,000 steps</td><td>Dataset built in DIAMOND format; model not yet trained</td></tr>
+            <tr data-k="llm"><td>Can a tiny model sound like my game server?</td><td><span class="num">3.8M</span>-parameter GPT on <span class="num">13.6M</span> tokens of server chat, ONNX in the browser</td><td>Runs client-side in a browser sandbox</td></tr>
+            <tr data-k="llm"><td>Serve a 122B model on a 128 GB APU?</td><td>MoE with multi-token-prediction vs DFlash speculative decoding</td><td>MTP <span class="num">25–29</span> tok/s; DFlash <span class="num">8–13</span>, slower than no draft</td></tr>
+            <tr data-k="llm"><td>Trust a vendor's quantized model?</td><td>4-bit 27B, HumanEval audit</td><td>Speed held; quality <span class="num">154/164</span> vs claimed <span class="num">158/164</span>; not adopted</td></tr>
+            <tr data-k="agent"><td>Can an LLM play my modpack?</td><td>Local 9B planner over a deterministic game controller</td><td>Passed <span class="num">29 of 30</span> screens, approved <span class="num">1 of 7</span> bad proposals; kept out of autonomous play</td></tr>
+            <tr data-k="agent"><td>Find anything across agent notes?</td><td>Multimodal embeddings (Jina v5) behind an MCP server</td><td>Text index in daily use by the agents</td></tr>
+          </tbody>
+        </table></div>
+      </div></section>
+    </div>
+    <nav class="next" aria-label="Back to the map"></nav>
+  </article>
+
+  <!-- ======================= SUMMIT ======================= -->
+  <article class="page" data-view="summit" hidden>
+    <nav class="route" aria-label="Stations"></nav>
+    <header class="ph">
+      <div class="ph-box">
+        <span class="kk">off the traverse · day job</span>
+        <p class="small">Summit is work for my employer, so it has no object on the map. These numbers were read from Summit itself on 20 November 2026.</p>
+        <dl class="facts"><div><dt>registered models</dt><dd>513</dd></div><div><dt>eval requests</dt><dd>571</dd></div><div><dt>auto-labeled samples</dt><dd>~301,000</dd></div></dl>
+      </div>
+      <div class="ph-lbl">
+        <span class="no"><span class="x"></span>job <em>· denali · 2025–2026</em></span>
+        <h1>Summit, the harness Claude works in</h1>
+        <p class="lede">My team's model factory: bring in images, label them, have a person accept the labels, freeze the data, train, register, score, and write down what was learned. People use it in a browser. Claude uses the same functions through about 147 MCP tools.</p>
+      </div>
+    </header>
+    <div class="body">
+      <section class="blk"><h2><b>01</b>The loop</h2><div class="bd">
+        <ol class="pipe" aria-label="Summit loop">
+          <li><span>Images<small>bring in</small></span></li>
+          <li><span>Label<small>VLM or SAM 3 first pass</small></span></li>
+          <li><span>Accept<small>a person only</small></span></li>
+          <li><span>Snapshot<small>frozen data</small></span></li>
+          <li><span>Train<small>through Summit</small></span></li>
+          <li><span>Register<small>lineage, card, sha256</small></span></li>
+          <li><span>Score<small>eval service</small></span></li>
+          <li><span>Verdict<small>number + decision</small></span></li>
+        </ol>
+        <p>A capable agent with GPU access can train many models quickly. Without a harness, that produces runs nobody can explain, labels nobody checked, and wins nobody can reproduce. The rules sit in the server, not only in the prompt, so they hold whichever Claude session, script or person is calling.</p>
+      </div></section>
+      <section class="blk"><h2><b>02</b>The rules, in the server</h2><div class="bd">
+        <div class="grid3">
+          <div class="box"><h3>Every run states its bet</h3><p>A training run carries a hypothesis and a change class. When the score comes back, a verdict closes the bet with the number and a decision.</p></div>
+          <div class="box"><h3>Claude can't confirm its own result</h3><p>A result Claude reports itself is only “claimed”. It becomes “confirmed” only when Summit re-reads the metric from a real run or eval.</p></div>
+          <div class="box"><h3>People own the ground truth</h3><p>Claude can label thousands of images but cannot accept them. The server refuses, and saves the request as a suggestion for a person. Training refuses data still pending review.</p></div>
+          <div class="box"><h3>Everything is reproducible</h3><p>Runs and evals point at frozen snapshots, and every model has a lineage node, a card and a sha256.</p></div>
+          <div class="box"><h3>Dangerous actions need the person</h3><p>Destructive tools need the person's intent in the current session. Unattended agents get a token that cannot delete anything.</p></div>
+          <div class="box"><h3>People see everything</h3><p>The lineage tree, model cards, the review queue and the hypothesis-to-verdict trail show what Claude did and what is waiting on a person.</p></div>
+        </div>
+      </div></section>
+      <section class="blk"><h2><b>03</b>Evidence the guardrails work</h2><div class="bd">
+        <p>In an ablation of the team plugin that carries these rules to every Claude Code session, 53 cases under 5 conditions gave 371 runs. Harmful agent runs fell from <span class="num">4 of 82</span> with hand-wired tools to <span class="num">0 of 82</span> with the plugin, and task outcome rose from <span class="num">0.73</span> to <span class="num">0.93</span>.</p>
+        <div class="nums">
+          <div><b>513</b><span>lineage nodes across 95+ model families</span></div>
+          <div><b>571</b><span>eval requests</span></div>
+          <div><b>463</b><span>datasets, about 1.36M samples</span></div>
+          <div><b>300,895</b><span>samples auto-labeled in 276 jobs</span></div>
+          <div><b>79</b><span>annotator models</span></div>
+          <div><b>7,176</b><span>tests in CI</span></div>
+        </div>
+      </div></section>
+      <section class="blk"><h2><b>04</b>My part</h2><div class="bd">
+        <p>I designed and built Summit: v1 in September 2025 and the v2 rewrite from April 2026, where I wrote 1,952 of the 2,200 commits on the main line. I wrote the agent guide Claude follows and the plugin that carries the rules to the team's server. Teammates use Summit every day, and most of the training runs and hypotheses in it are theirs.</p>
+        <div class="box limits"><span class="k">What the record can't show</span><ul><li>Who started each training run or labeling job; there is no actor field.</li><li>Accept, reject and edit counts from the review queue.</li><li>How many people use the plugin each week.</li><li>How much Summit work Claude did unattended versus driven by a person.</li></ul></div>
+      </div></section>
+    </div>
+    <nav class="next" aria-label="Back to the map"></nav>
+  </article>
+
+  <!-- ======================= ABOUT ======================= -->
+  <article class="page" data-view="about" hidden>
+    <nav class="route" aria-label="Stations"></nav>
+    <header class="ph">
+      <div class="ph-box">
+        <span class="kk">how to read this site</span>
+        <p class="small">Seven stations, joined in order by the dashed traverse. Every object is rendered in one studio, under one light. Textured objects are real outputs; stone-coloured ones are measurements. Dashed boxes hold limits and negative results.</p>
+      </div>
+      <div class="ph-lbl">
+        <span class="no"><span class="x"></span>about <em>· now</em></span>
+        <h1>Gavin Daher</h1>
+        <p class="lede">I lead the Physical AI Team at Denali, where we build industrial vision systems from the camera up. On my own time I run AI agents on hardware I built, and use them to try ideas from my hobbies.</p>
+      </div>
+    </header>
+    <div class="body">
+      <section class="blk"><h2><b>01</b>How I work</h2><div class="bd">
+        <div class="grid2">
+          <div class="box"><span class="k">01 pick</span><h3>A real problem from a hobby</h3><p>Better caves, Earth-like rivers, 3D assets from a drawing, a model that fits my hardware.</p></div>
+          <div class="box"><span class="k">02 try</span><h3>The architecture that might work</h3><p>Diffusion, score models, GRUs, image-to-3D, MoE LLMs, or no network at all.</p></div>
+          <div class="box"><span class="k">03 measure</span><h3>Against reality, with a baseline</h3><p>Held-out real data, pre-registered gates, and an A/B against the boring option.</p></div>
+          <div class="box"><span class="k">04 keep</span><h3>Only what survives</h3><p>Failures stay on the record, written up as fully as the wins.</p></div>
+        </div>
+        <p>Agents (Claude Code and Codex) write most of the code and run most of the experiments. I choose the questions, design how results get verified, set what agents may do unattended, and make the calls on what ships.</p>
+      </div></section>
+      <section class="blk"><h2><b>02</b>Day job</h2><div class="bd">
+        <div class="tbl"><table>
+          <tbody>
+            <tr><td><a href="#summit">Summit: Claude's ML harness →</a></td><td>Built the platform where Claude labels, trains and evaluates my team's models through about 147 MCP tools. Only people accept labels, and Claude can't confirm its own results.</td></tr>
+            <tr><td>Founded the Physical AI Team</td><td>Industrial vision systems from hardware to software; I run each engagement as sales, project and solutions engineer.</td></tr>
+            <tr><td>0 to 220+ weekly Claude users</td><td>Led the company's internal AI rollout in 2026, with a guardrail plugin that cut harmful agent runs from 4 of 82 to 0.</td></tr>
+            <tr><td>IEEE EdgeCom 2026</td><td>Co-author, Rainier-VL, a compact vision-language model for industrial inspection. <a href="https://huggingface.co/Denali-AI/Rainier-VL-2B-MTP">Model</a>.</td></tr>
+            <tr><td>Cisco Innovation Challenge</td><td>#1 of 111 entries in 2026; 3rd globally in 2025.</td></tr>
+          </tbody>
+        </table></div>
+        <p class="small">Roles at Denali Advanced Integration: Business Analyst II 2021–23, Automation Architect 2023–25, Founder and lead of the Physical AI Team 2025 to now. Full history in the <a href="gavin-daher-resume.pdf" download>résumé (PDF)</a>.</p>
+      </div></section>
+    </div>
+    <nav class="next" aria-label="Back to the map"></nav>
+  </article>
+</main>
+
+<script>
+(function () {
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* Station order and the object that represents each one. */
+  var ST = [
+    { id: 'caves', t: 'Neural Karstogenesis', img: 'img/r-cave-cast.webp' },
+    { id: 'nine', t: 'Nine days unattended', img: 'img/r-runs-bars.webp' },
+    { id: 'assetforge', t: 'AssetForge', img: 'img/r-minotaur.webp' },
+    { id: 'terrain', t: 'Terrain diffusion', img: 'img/r-terrain-tile.webp' },
+    { id: 'finetune', t: 'Style LoRAs and synthetic data', img: 'img/r-pumpkin-tile.webp' },
+    { id: 'atlas', t: 'Orbital Atlas', img: 'img/r-atlas-tile.webp' },
+    { id: 'lab', t: 'The lab', img: 'img/r-ledger-bars.webp' }
+  ];
+  function pad(n) { return 'st.0' + n; }
+
+  /* Route strip and next-station footer on every page. */
+  document.querySelectorAll('.page').forEach(function (pg) {
+    var cur = +pg.getAttribute('data-st') || 0, route = pg.querySelector('.route'), next = pg.querySelector('.next');
+    var h = '';
+    ST.forEach(function (s, i) {
+      h += '<a href="#' + s.id + '"' + (i + 1 === cur ? ' aria-current="step"' : '') + '><span class="x' + (i + 1 === cur ? ' on' : '') + '"></span><span>' + pad(i + 1) + '</span><span class="t">' + s.t + '</span></a>';
+    });
+    route.innerHTML = h;
+    var n = cur && cur < ST.length ? ST[cur] : null;
+    if (n) {
+      next.innerHTML = '<a class="go" href="#' + n.id + '"><img src="' + n.img + '" alt="" loading="lazy"><span class="lbl"><span class="x"></span><span class="no">next · ' + pad(cur + 1) + '</span><span class="name">' + n.t + ' →</span></span></a><a class="back" href="#map">← back to the map</a>';
+    } else if (cur === ST.length) {
+      next.innerHTML = '<a class="go" href="#architectures"><span class="lbl"><span class="x"></span><span class="no">end of the traverse</span><span class="name">Architectures I’ve tried →</span></span></a><a class="back" href="#map">← back to the map</a>';
+    } else {
+      next.innerHTML = '<a class="go" href="#caves"><img src="' + ST[0].img + '" alt="" loading="lazy"><span class="lbl"><span class="x"></span><span class="no">start of the traverse · st.01</span><span class="name">' + ST[0].t + ' →</span></span></a><a class="back" href="#map">← back to the map</a>';
+    }
+    var foot = document.createElement('p'); foot.className = 'foot';
+    foot.textContent = 'Numbers come from each project’s own records as of November 2026: run logs, git history and the audit ledger. Agents did most of the implementation; the questions, verification design and decisions are mine.';
+    pg.appendChild(foot);
+  });
+
+  /* Router */
+  var views = document.querySelectorAll('[data-view]'), field = document.getElementById('field'), current = null;
+  function route() {
+    var h = (location.hash || '#map').slice(1), ok = false;
+    views.forEach(function (v) { if (v.getAttribute('data-view') === h) ok = true; });
+    if (!ok) h = 'map';
+    views.forEach(function (v) { v.hidden = v.getAttribute('data-view') !== h; });
+    document.querySelectorAll('[data-nav]').forEach(function (a) {
+      var on = a.getAttribute('data-nav') === h || (a.getAttribute('data-nav') === 'map' && h === 'map');
+      if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    });
+    if (current !== null && current !== h) window.scrollTo(0, 0);
+    current = h;
+    layout();
+  }
+  window.addEventListener('hashchange', route);
+
+  /* Survey traverse on the map: a dashed line through each station's crosshair, in order. */
+  function traverse() {
+    var path = document.getElementById('traversePath'); if (!path || field.hidden) return;
+    var fr = field.getBoundingClientRect(), d = '';
+    field.querySelectorAll('.st .x').forEach(function (x, i) {
+      var r = x.getBoundingClientRect(), cx = r.left + r.width / 2 - fr.left, cy = r.top + r.height / 2 - fr.top;
+      d += (i ? ' L ' : 'M ') + cx.toFixed(1) + ' ' + cy.toFixed(1);
+    });
+    path.setAttribute('d', d);
+  }
+
+  /* Contour ground: value noise and marching squares, redrawn when the page height changes. */
+  var cv = document.getElementById('contours'), ctx = cv.getContext && cv.getContext('2d');
+  var perm = new Uint8Array(512), seed = 564;
+  function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+  for (var i = 0; i < 256; i++) perm[i] = i;
+  for (i = 255; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)), tmp = perm[i]; perm[i] = perm[j]; perm[j] = tmp; }
+  for (i = 0; i < 256; i++) perm[i + 256] = perm[i];
+  function fade(t) { return t * t * (3 - 2 * t); }
+  function vn(x, y) {
+    var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi; xi &= 255; yi &= 255;
+    var a = perm[perm[xi] + yi] / 255, b = perm[perm[xi + 1] + yi] / 255, c = perm[perm[xi] + yi + 1] / 255, d = perm[perm[xi + 1] + yi + 1] / 255;
+    var u = fade(xf), v = fade(yf); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  function hgt(x, y) { return vn(x, y) * 0.6 + vn(x * 2.2 + 7, y * 2.2) * 0.28 + vn(x * 4.7, y * 4.7 + 3) * 0.12; }
+  var lastW = 0, lastH = 0;
+  function contours() {
+    if (!ctx) return;
+    cv.style.height = '0px';
+    var W = document.documentElement.clientWidth, H = Math.max(document.documentElement.scrollHeight, window.innerHeight), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.style.height = H + 'px';
+    if (W === lastW && H === lastH) return; lastW = W; lastH = H;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+    var css = getComputedStyle(document.documentElement), minor = css.getPropertyValue('--contour').trim(), major = css.getPropertyValue('--contour-major').trim();
+    var step = 18, cols = Math.ceil(W / step) + 1, rows = Math.ceil(H / step) + 1, sc = 0.0035 * step, g = new Float32Array(cols * rows);
+    for (var y = 0; y < rows; y++) for (var x = 0; x < cols; x++) g[y * cols + x] = hgt(x * sc, y * sc);
+    for (var L = 1; L < 22; L++) {
+      var lv = L / 22; ctx.strokeStyle = (L % 5 === 0) ? major : minor; ctx.lineWidth = (L % 5 === 0) ? 1.2 : 0.8; ctx.beginPath();
+      for (y = 0; y < rows - 1; y++) for (x = 0; x < cols - 1; x++) {
+        var a = g[y * cols + x], b = g[y * cols + x + 1], c = g[(y + 1) * cols + x + 1], d = g[(y + 1) * cols + x];
+        var idx = (a > lv ? 8 : 0) | (b > lv ? 4 : 0) | (c > lv ? 2 : 0) | (d > lv ? 1 : 0); if (idx === 0 || idx === 15) continue;
+        var px = x * step, py = y * step;
+        var T = [px + step * (lv - a) / (b - a), py], R = [px + step, py + step * (lv - b) / (c - b)], B = [px + step * (lv - d) / (c - d), py + step], Lf = [px, py + step * (lv - a) / (d - a)];
+        var segs = { 1: [Lf, B], 2: [B, R], 3: [Lf, R], 4: [T, R], 5: [Lf, T, B, R], 6: [T, B], 7: [Lf, T], 8: [Lf, T], 9: [T, B], 10: [T, R, Lf, B], 11: [T, R], 12: [Lf, R], 13: [B, R], 14: [Lf, B] }[idx];
+        for (var s = 0; s < segs.length; s += 2) { ctx.moveTo(segs[s][0], segs[s][1]); ctx.lineTo(segs[s + 1][0], segs[s + 1][1]); }
+      }
+      ctx.stroke();
+    }
+  }
+  function layout() { traverse(); contours(); }
+  var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(layout, 150); });
+  window.addEventListener('load', layout);
+  document.querySelectorAll('img').forEach(function (im) { if (!im.complete) im.addEventListener('load', function () { clearTimeout(rt); rt = setTimeout(layout, 80); }); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
+
+  /* st.01 before/after slider */
+  var stage = document.getElementById('baStage'), range = document.getElementById('baRange');
+  var under = document.getElementById('baUnder'), over = document.getElementById('baOver');
+  function setX(p) { p = Math.max(0, Math.min(100, p)); stage.style.setProperty('--x', p + '%'); range.value = Math.round(p); }
+  range.addEventListener('input', function () { setX(+range.value); });
+  var dragging = false;
+  function fromEvent(e) { var r = stage.getBoundingClientRect(); setX((e.clientX - r.left) / r.width * 100); }
+  stage.addEventListener('pointerdown', function (e) { dragging = true; if (stage.setPointerCapture) stage.setPointerCapture(e.pointerId); fromEvent(e); });
+  stage.addEventListener('pointermove', function (e) { if (dragging) fromEvent(e); });
+  stage.addEventListener('pointerup', function () { dragging = false; });
+  stage.addEventListener('pointercancel', function () { dragging = false; });
+  document.querySelectorAll('#baTabs button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#baTabs button').forEach(function (o) { o.setAttribute('aria-selected', o === b ? 'true' : 'false'); });
+      var k = b.getAttribute('data-k'); under.src = 'img/slider-' + k + '-vanilla.jpg'; over.src = 'img/slider-' + k + '-learned.jpg'; setX(50);
+    });
+  });
+
+  /* st.01 architecture ladder */
+  var R = [
+    ['Dense SDF diffusion', 'dropped', 'Diffusion over signed-distance cave volumes.', 'Learned plausible routes, but calibration and generalisation to unseen caves were poor.', 'Kept the procedural teacher as the control to beat.'],
+    ['Nearest-cave conditioning', 'dropped', 'Condition generation on the closest real cave archetype.', 'Improved all four metrics on one held-out cave and none on the other. A blind review preferred the procedural baseline on both.', 'Matching a real cave by token was not what transferred.'],
+    ['Local retrieval', 'dropped', 'Retrieve and blend nearby real cave patches.', 'Failed 5 of 5 source-held-out folds: ranked shape survived, but the wall boundary was badly miscalibrated.', 'Wall placement needed its own model.'],
+    ['Sequence diffusion', 'dropped', '1.02M-parameter conditional 1D diffusion over passage cross-sections, trained leave-one-cave-out.', 'Beat the baselines on 0 of 12 caves and 0 of 6 metrics; samples jumped between near-zero passages and needle chambers.', 'Closed as a negative result.'],
+    ['Residual EDM', 'dropped', 'Diffusion over the innovations of an autoregressive process instead of absolute shape.', 'About 3× better on one cave and 3.3 to 4.8× worse than plain AR on another. The 12-fold run was cancelled.', 'Its empirical control did unexpectedly well, which pointed to the next rung.'],
+    ['Empirical innovations', 'kept', 'Resample measured real innovations through an interpretable AR process. No neural network.', 'Won 12 of 12 held-out caves (10 of them unused while finding the idea) and 6 of 6 metrics, with byte-identical output at 0.0038 ms per token.', 'Stronger machinery failed; the control isolated the mechanism that actually transfers.'],
+    ['Topology head and projection', 'kept', 'A 15-parameter event-count head, recursive branching, and hard projection of ports, bounds and connectivity.', '120 of 120 samples valid; beat the procedural grammar on 5 of 8 metrics across 11 source composites.', 'Hard constraints keep every cave connected and safe to walk.'],
+    ['Conditional score model', 'part', 'A 6,090-parameter score model over 10 spectral passage-trajectory coefficients, trained on 451 real segments.', 'Won 8 of 12 systems but only 1 of 5 physical metrics, then lost to straight baselines on untouched graphs.', 'Kept as a component, not promoted.'],
+    ['Neural wall-evolution operator', 'kept', 'A 9,248-parameter MLP mapping 46 hydraulic inputs to 32 angular wall offsets. Trains in 1.6 s on CPU.', 'On an unseen case: wall error 0.068 m, angular correlation 0.94, 0.46× the error of a learned isotropic control, zero leakage.', 'It imitates a synthetic hydraulic teacher, not real geological time.'],
+    ['Chamber-event field', 'kept', 'A 114,775-parameter GRU decides where chambers open along the route; a measured kernel of 35,061 transitions sizes them.', 'Median average-precision lift 4.64 (range 1.23 to 10.66) over 4 whole-cave folds; its neural size heads failed.', 'The network owns only event placement, the one job it won.']
+  ];
+  var VL = { kept: 'kept', dropped: 'dropped', part: 'component' };
+  var ul = document.getElementById('rungs'), panel = document.getElementById('rungPanel');
+  function showRung(i) {
+    var r = R[i];
+    ul.querySelectorAll('button').forEach(function (b, k) { b.setAttribute('aria-selected', k === i ? 'true' : 'false'); b.tabIndex = k === i ? 0 : -1; });
+    panel.innerHTML = '<span class="k">rung ' + (i + 1) + ' of ' + R.length + '</span><span class="pill ' + r[1] + '">' + VL[r[1]] + '</span>' +
+      '<h3>' + r[0] + '</h3><dl><dt>What it is</dt><dd>' + r[2] + '</dd><dt>Held-out result</dt><dd>' + r[3] + '</dd><dt>Takeaway</dt><dd>' + r[4] + '</dd></dl>';
+  }
+  R.forEach(function (r, i) {
+    var li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('role', 'tab');
+    b.innerHTML = '<span class="i">' + String(i + 1).padStart(2, '0') + '</span><span>' + r[0] + '</span><span class="dot ' + r[1] + '" title="' + VL[r[1]] + '"></span>';
+    b.addEventListener('click', function () { showRung(i); });
+    b.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); var n = (i + (e.key === 'ArrowDown' ? 1 : -1) + R.length) % R.length; showRung(n); ul.querySelectorAll('button')[n].focus(); }
+    });
+    li.appendChild(b); ul.appendChild(li);
+  });
+  showRung(5);
+
+  /* st.02 nine-day chart */
+  var D = [
+    { d: '9 Aug', p: 'build', n: 96, u: 'commits', h: 30, t: 'The harness came first', b: 'Before training any cave model, the agent built paired evaluation: vanilla and learned caves on the same seed, compared at the same spot. Learned caves were applied after Minecraft’s own carvers and features, and falling blocks and cave fluids were kept stable around them.' },
+    { d: '10 Aug', p: 'build', n: 36, u: 'commits', h: 30, t: 'Preregister, bind, record', b: 'Each experiment became three commits: a preregistration with its pass rule, a binding to exact inputs, then the recorded result. A failed staging soak was kept, with a clean rerun registered beside it. My approval to prepare a release was recorded as its own commit.' },
+    { d: '11 Aug', p: 'cw', n: 6, u: 'CaveWeaver run folders', f: 6, t: 'A safe product path first', b: 'CaveWeaver started: deterministic cave geometry prepared offline and served to Minecraft, with no neural inference on the game thread.' },
+    { d: '12 Aug', p: 'cw', n: 106, u: 'CaveWeaver run folders', f: 106, t: 'CaveWeaver stages CW0 to CW12', b: 'Baselines, topology, boundary detail, a Minecraft bridge and a biome-aware showcase. Failed stages keep their names; one is filed as “failed, no protected core”.' },
+    { d: '13 Aug', p: 'nk', n: 86, u: 'numbered runs (1 to 86)', f: 86, t: 'Real caves in', b: 'Neural Karstogenesis begins on twelve real caves, held out by whole cave. The first learned wall and trajectory models, a blind causal check and the first external confirmations.' },
+    { d: '14 Aug', p: 'nk', n: 103, u: 'numbered runs (87 to 189)', f: 103, t: 'Finding the limits', b: 'A bounded-runtime failure, generalization diagnosis on unseen caves, protected-route compilation and a flow teacher.' },
+    { d: '15 Aug', p: 'nk', n: 141, u: 'numbered runs (190 to 330)', f: 141, t: 'Into Minecraft', b: 'First materialization into disposable world files (Run 195). The 6,090-parameter score model (Run 226). An import into Godot, and the first long-lived server-side runtime (Run 297). The busiest day.' },
+    { d: '16 Aug', p: 'nk', n: 113, u: 'numbered runs (331 to 443)', f: 113, t: 'From model decision to pixels', b: 'Neural events traced from the model’s decision to genuine Minecraft client frames (Run 359). A run of named failures on membranes and host ownership. A content-bound release candidate passed 38 evidence checks (Run 442).' },
+    { d: '17 Aug', p: 'nk', n: 121, u: 'numbered runs (444 to 564)', f: 121, t: 'Unseen seeds and a release', b: 'Three unseen seeds at a median 0.37% overhead (Run 462). Stopped-save audits found water inside the cave (Run 464), which took until Run 531 to fix. Two-client multiplayer traversal, then the research release (Run 564).' }
+  ];
+  var box = document.getElementById('days'), dx = document.getElementById('daysX'), dayPanel = document.getElementById('dayPanel');
+  function showDay(i) {
+    var x = D[i];
+    box.querySelectorAll('button').forEach(function (b, j) { b.setAttribute('aria-pressed', j === i ? 'true' : 'false'); });
+    dayPanel.innerHTML = '<span class="k">' + x.d + ' · ' + x.n.toLocaleString() + ' ' + x.u + '</span><h3>' + x.t + '</h3><p>' + x.b + '</p>';
+  }
+  D.forEach(function (x, i) {
+    var b = document.createElement('button'), h = x.h || Math.max(6, Math.round(x.f / 141 * 150));
+    b.type = 'button'; b.setAttribute('data-p', x.p);
+    b.innerHTML = '<span class="nn">' + x.n + '</span><span class="bar" style="--h:' + h + 'px"></span>';
+    b.setAttribute('aria-label', x.d + ': ' + x.n + ' ' + x.u + '. ' + x.t);
+    b.addEventListener('click', function () { showDay(i); });
+    box.appendChild(b);
+    var s = document.createElement('span'); s.textContent = x.d; dx.appendChild(s);
+  });
+  showDay(6);
+
+  /* st.03 videos: pause when motion is reduced */
+  if (reduce) document.querySelectorAll('video[autoplay]').forEach(function (v) { v.removeAttribute('autoplay'); v.setAttribute('controls', ''); v.pause(); });
+
+  /* st.05 gallery filter */
+  var gf = document.getElementById('galFilters'), gal = document.getElementById('gal');
+  gf.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    gf.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    var k = b.getAttribute('data-g');
+    gal.querySelectorAll('figure').forEach(function (fig) { fig.hidden = !(k === 'all' || fig.getAttribute('data-g') === k); });
+    layout();
+  });
+
+  /* st.07 lab diagram */
+  var N = {
+    me: ['Me', 'I set policy and standing rules, approve anything destructive, outward-facing or touching money or credentials, and test every build before it reaches anyone else.', ['92 recorded decisions in the ledger', '685 questions agents parked for me instead of guessing', 'A written scope for every overnight run']],
+    lead: ['Lead agent', 'Claude Code on the Proxmox host acts as lead developer and orchestrator. It splits work into lanes for sub-agents (Sonnet by default, Opus for hard problems) and keeps a memory of more than 130 notes on standing rules and project state.', ['Verify by artifact: reads back every claimed write', 'Arms a wake-up before going idle', 'Never routes around a permission prompt']],
+    codex: ['Codex threads', 'Long-running Codex threads take handoff packets for bigger build work and are woken and steered with small scripts. Each packet gets one independent reviewer before it merges.', ['Merge trains build, test and fast-forward on pass', 'Thread rollovers handled by repointing tools']],
+    org: ['Agent control plane', 'A registry defines departments and 27 scheduled jobs; systemd timers run them headless. Each run gets a tier, a tool wall and a brief, and every step lands in a sha256-chained ledger.', ['Tiers: read-only, safe-auto, and full-auto (requested by name, then downgraded)', 'Deny list: rm, ssh, sudo, git push, network fetches', 'Kernel read-only mounts behind the tool rules', 'Briefs that cite unsourced numbers are rejected']],
+    bus: ['Notification bus', 'A self-hosted push service with a fallback broker on a Jetson. Messages are typed (event, request, reply, claim, release, heartbeat) and sorted by severity before they reach my phone.', ['Signals only: a message can never trigger a destructive or outward action', 'Claim and release act as a soft lock so agents do not double up', 'Routine events never notify']],
+    broker: ['GPU broker', 'A fleet-wide queue built on files and flock over the shared storage. The broker offers a slot; the node itself grants it after checking free memory.', ['Ordering fails open, so a storage outage cannot idle a GPU', 'Admission never fails open', 'Leases expire; a sweeper clears dead ones every 30 s']],
+    fd: ['AMD Strix Halo', 'An APU with 128 GB of unified memory, about 96 GB usable by the GPU. It serves 35B to 122B mixture-of-experts models through llama.cpp and runs the image-to-3D pipeline.', ['Vulkan lane beat HIP by 13.6% on decode', 'FP8 broken on this GPU; fp32 canaries guard bf16 jobs']],
+    pve: ['Proxmox host', 'Ryzen 7 9700X, 91 GB of RAM, an RTX 4060 Ti 16 GB shared across containers, and 6 TB of NVMe. Fourteen containers cover inference, research, game servers, the beta backend and the control plane.', ['Research container for terrain and cave work', 'A Minecraft client test rig with GPU access']],
+    test: ['Test machines', 'An RTX 4080 desktop (woken on demand, off when idle) and an Apple M4 Pro Mac. With the Linux machines they make four OS and GPU combinations for real-client tests.', ['Driven by an MCP harness with per-machine leases', 'Never used while I am playing on them']],
+    nas: ['NAS and monitoring', 'Unraid with a 3.8 TB shared namespace mounted at the same path everywhere: models, datasets, results and backups. Prometheus, Grafana and Alertmanager watch every node.', ['Every backup has to pass a restore test', 'Internal TLS names for each service, not exposed publicly']]
+  };
+  var det = document.getElementById('labDetail'), nodes = document.querySelectorAll('#labsvg .n');
+  function showNode(k) {
+    var n = N[k];
+    nodes.forEach(function (g) { g.setAttribute('aria-pressed', g.getAttribute('data-n') === k ? 'true' : 'false'); });
+    det.innerHTML = '<span class="k">selected</span><h3>' + n[0] + '</h3><p>' + n[1] + '</p><ul>' + n[2].map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>';
+  }
+  nodes.forEach(function (g) {
+    var k = g.getAttribute('data-n');
+    g.addEventListener('click', function () { showNode(k); });
+    g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showNode(k); } });
+  });
+  showNode('org');
+
+  /* architectures filter */
+  var bf = document.getElementById('brFilters'), rows = document.querySelectorAll('#breadthTbl tbody tr');
+  bf.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    bf.querySelectorAll('button').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+    var f = b.getAttribute('data-f');
+    rows.forEach(function (r) { r.hidden = !(f === 'all' || r.getAttribute('data-k') === f); });
+    layout();
+  });
+
+  route();
+})();
+</script>
